@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import Annotated, Optional
@@ -14,14 +15,40 @@ from router.authentication import get_current_user
 app = FastAPI()
 
 
+# =========================
+# CORS
+# =========================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# =========================
+# DATABASE
+# =========================
+
 models.Base.metadata.create_all(bind=engine)
+
+
+# =========================
+# ROUTERS
+# =========================
 
 app.include_router(authentication.router)
 app.include_router(admin.router)
 
 
-def get_db():
+# =========================
+# DATABASE DEPENDENCY
+# =========================
 
+
+def get_db():
     db = SessionLocal()
 
     try:
@@ -34,9 +61,9 @@ db_dependency = Annotated[Session, Depends(get_db)]
 user_dependency = Annotated[dict, Depends(get_current_user)]
 
 
-# =========================
+# =========================================================
 # COMPLAINTS
-# =========================
+# =========================================================
 
 
 @app.get("/complaints")
@@ -235,9 +262,9 @@ def delete_complaint(user: user_dependency, db: db_dependency, complaint_id: int
     return {"message": "Complaint deleted successfully"}
 
 
-# =========================
+# =========================================================
 # SERVICE REQUESTS
-# =========================
+# =========================================================
 
 
 @app.get("/services")
@@ -459,9 +486,9 @@ def delete_service(user: user_dependency, db: db_dependency, service_id: int):
     return {"message": "Service request deleted successfully"}
 
 
-# =========================
+# =========================================================
 # ADMIN MESSAGES
-# =========================
+# =========================================================
 
 
 @app.post("/admin/messages")
