@@ -1,0 +1,1134 @@
+@import "tailwindcss";
+
+@plugin "daisyui";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+/* =========================================================
+   Global Styles
+========================================================= */
+
+:root {
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+
+  color: #172033;
+  background: #f5f8fc;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+
+  background:
+    radial-gradient(circle at 10% 10%,
+      rgba(37, 99, 235, 0.08),
+      transparent 28%),
+    radial-gradient(circle at 90% 20%,
+      rgba(6, 182, 212, 0.07),
+      transparent 25%),
+    #f5f8fc;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+
+/* =========================================================
+   Selection
+========================================================= */
+
+::selection {
+  background: rgba(37, 99, 235, 0.2);
+  color: #172033;
+}
+
+
+/* =========================================================
+   Global Transitions
+========================================================= */
+
+button,
+a,
+input,
+textarea,
+select {
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+
+/* =========================================================
+   Page Enter Animation
+========================================================= */
+
+.page-enter {
+  animation:
+    pageEnter 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform:
+      translateY(14px) scale(0.99);
+  }
+
+  to {
+    opacity: 1;
+    transform:
+      translateY(0) scale(1);
+  }
+}
+
+
+/* =========================================================
+   Card Animation
+========================================================= */
+
+.card {
+  transition:
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.3s ease,
+    border-color 0.3s ease;
+}
+
+.card:hover {
+  transform:
+    translateY(-6px) rotateX(1deg);
+
+  box-shadow:
+    0 18px 40px rgba(15, 23, 42, 0.12);
+}
+
+
+/* =========================================================
+   Stagger Animation
+   Useful for service/complaint cards
+========================================================= */
+
+.stagger-item {
+  animation:
+    staggerIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.stagger-item:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.stagger-item:nth-child(2) {
+  animation-delay: 0.10s;
+}
+
+.stagger-item:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.stagger-item:nth-child(4) {
+  animation-delay: 0.20s;
+}
+
+.stagger-item:nth-child(5) {
+  animation-delay: 0.25s;
+}
+
+.stagger-item:nth-child(6) {
+  animation-delay: 0.30s;
+}
+
+.stagger-item:nth-child(7) {
+  animation-delay: 0.35s;
+}
+
+.stagger-item:nth-child(8) {
+  animation-delay: 0.40s;
+}
+
+@keyframes staggerIn {
+  from {
+    opacity: 0;
+    transform:
+      translateY(18px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform:
+      translateY(0) scale(1);
+  }
+}
+
+
+/* =========================================================
+   Buttons
+========================================================= */
+
+.btn {
+  position: relative;
+  overflow: hidden;
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.btn::after {
+  content: "";
+
+  position: absolute;
+
+  top: 0;
+  left: -120%;
+
+  width: 60%;
+  height: 100%;
+
+  background:
+    linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.25),
+      transparent);
+
+  transform: skewX(-20deg);
+
+  transition: left 0.5s ease;
+
+  pointer-events: none;
+}
+
+.btn:hover::after {
+  left: 130%;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+
+/* =========================================================
+   Primary Button
+========================================================= */
+
+.btn-primary {
+  box-shadow:
+    0 8px 20px rgba(37, 99, 235, 0.18);
+}
+
+.btn-primary:hover {
+  box-shadow:
+    0 12px 28px rgba(37, 99, 235, 0.28);
+}
+
+
+/* =========================================================
+   Inputs / Textarea / Select
+========================================================= */
+
+.input,
+.textarea,
+.select {
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.input:focus,
+.textarea:focus,
+.select:focus {
+  outline: none;
+
+  transform: scale(1.01);
+
+  border-color: #2563eb;
+
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.08),
+    0 8px 20px rgba(37, 99, 235, 0.08);
+}
+
+
+/* =========================================================
+   Links
+========================================================= */
+
+a {
+  transition:
+    color 0.2s ease,
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+
+/* =========================================================
+   Navbar
+========================================================= */
+
+.navbar {
+  transition:
+    background-color 0.25s ease,
+    box-shadow 0.25s ease,
+    backdrop-filter 0.25s ease;
+}
+
+
+/* =========================================================
+   Navbar Link Hover
+========================================================= */
+
+.navbar a:hover {
+  transform: translateY(-1px);
+}
+
+
+/* =========================================================
+   Badges
+========================================================= */
+
+.badge {
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.badge:hover {
+  transform: scale(1.06);
+
+  box-shadow:
+    0 5px 14px rgba(15, 23, 42, 0.1);
+}
+
+
+/* =========================================================
+   Alert Animation
+========================================================= */
+
+.alert {
+  animation:
+    alertEnter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes alertEnter {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+
+/* =========================================================
+   Loading
+========================================================= */
+
+.loading {
+  animation-duration: 0.8s;
+}
+
+
+/* =========================================================
+   Shimmer Loading Effect
+========================================================= */
+
+.shimmer {
+  position: relative;
+  overflow: hidden;
+
+  background: #e9eef5;
+}
+
+.shimmer::after {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  transform: translateX(-100%);
+
+  background:
+    linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.65),
+      transparent);
+
+  animation:
+    shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+
+/* =========================================================
+   Dropdown Animation
+========================================================= */
+
+.dropdown-content {
+  animation:
+    dropdownEnter 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  transform-origin: top right;
+}
+
+@keyframes dropdownEnter {
+  from {
+    opacity: 0;
+
+    transform:
+      scale(0.94) translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      scale(1) translateY(0);
+  }
+}
+
+
+/* =========================================================
+   Floating Animation
+========================================================= */
+
+.float-animation {
+  animation:
+    floating 4s ease-in-out infinite;
+}
+
+@keyframes floating {
+
+  0%,
+  100% {
+    transform:
+      translateY(0) rotate(0deg);
+  }
+
+  50% {
+    transform:
+      translateY(-9px) rotate(1deg);
+  }
+}
+
+
+/* =========================================================
+   Slow Floating Background
+========================================================= */
+
+.float-slow {
+  animation:
+    floatSlow 7s ease-in-out infinite;
+}
+
+@keyframes floatSlow {
+
+  0%,
+  100% {
+    transform:
+      translate(0, 0) scale(1);
+  }
+
+  50% {
+    transform:
+      translate(12px, -15px) scale(1.05);
+  }
+}
+
+
+/* =========================================================
+   Pulse Glow
+========================================================= */
+
+.pulse-glow {
+  animation:
+    pulseGlow 2.8s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+
+  0%,
+  100% {
+    transform: scale(1);
+
+    box-shadow:
+      0 0 0 rgba(37, 99, 235, 0);
+  }
+
+  50% {
+    transform: scale(1.04);
+
+    box-shadow:
+      0 0 24px rgba(37, 99, 235, 0.2);
+  }
+}
+
+
+/* =========================================================
+   Gradient Text
+========================================================= */
+
+.gradient-text {
+  background:
+    linear-gradient(90deg,
+      #2563eb,
+      #0891b2);
+
+  -webkit-background-clip: text;
+  background-clip: text;
+
+  color: transparent;
+}
+
+
+/* =========================================================
+   Glass Effect
+========================================================= */
+
+.glass {
+  background:
+    rgba(255, 255, 255, 0.72);
+
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+
+  border:
+    1px solid rgba(255, 255, 255, 0.7);
+
+  box-shadow:
+    0 10px 35px rgba(15, 23, 42, 0.06);
+}
+
+
+/* =========================================================
+   Glass Hover
+========================================================= */
+
+.glass-hover {
+  transition:
+    background-color 0.3s ease,
+    box-shadow 0.3s ease,
+    transform 0.3s ease;
+}
+
+.glass-hover:hover {
+  background:
+    rgba(255, 255, 255, 0.86);
+
+  transform: translateY(-4px);
+
+  box-shadow:
+    0 18px 45px rgba(15, 23, 42, 0.1);
+}
+
+
+/* =========================================================
+   Professional Shadows
+========================================================= */
+
+.shadow-city {
+  box-shadow:
+    0 10px 30px rgba(15, 23, 42, 0.07);
+}
+
+.shadow-city-lg {
+  box-shadow:
+    0 20px 50px rgba(15, 23, 42, 0.1);
+}
+
+
+/* =========================================================
+   Modal Animation
+========================================================= */
+
+.animate-modal-in {
+  animation:
+    modalIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+
+    transform:
+      scale(0.92) translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      scale(1) translateY(0);
+  }
+}
+
+
+/* =========================================================
+   Modal Backdrop
+========================================================= */
+
+.modal-backdrop-animation {
+  animation:
+    backdropIn 0.25s ease-out both;
+}
+
+@keyframes backdropIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+
+/* =========================================================
+   Icon Hover
+========================================================= */
+
+.icon-hover {
+  transition:
+    transform 0.3s ease,
+    color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.icon-hover:hover {
+  transform:
+    rotate(8deg) scale(1.08);
+}
+
+
+/* =========================================================
+   Icon Bounce
+========================================================= */
+
+.icon-bounce:hover {
+  animation:
+    iconBounce 0.5s ease;
+}
+
+@keyframes iconBounce {
+  0% {
+    transform: translateY(0);
+  }
+
+  35% {
+    transform: translateY(-5px);
+  }
+
+  65% {
+    transform: translateY(2px);
+  }
+
+  100% {
+    transform: translateY(0);
+  }
+}
+
+
+/* =========================================================
+   Shine Effect
+========================================================= */
+
+.shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.shine::after {
+  content: "";
+
+  position: absolute;
+
+  top: 0;
+  left: -100%;
+
+  width: 50%;
+  height: 100%;
+
+  background:
+    linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.3),
+      transparent);
+
+  transform: skewX(-20deg);
+}
+
+.shine:hover::after {
+  animation:
+    shineMove 0.7s ease;
+}
+
+@keyframes shineMove {
+  from {
+    left: -100%;
+  }
+
+  to {
+    left: 150%;
+  }
+}
+
+
+/* =========================================================
+   Status Indicator
+========================================================= */
+
+.status-pulse {
+  animation:
+    statusPulse 2s ease-in-out infinite;
+}
+
+@keyframes statusPulse {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.65;
+    transform: scale(1.08);
+  }
+}
+
+
+/* =========================================================
+   Success Animation
+========================================================= */
+
+.success-pop {
+  animation:
+    successPop 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes successPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+
+  70% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+
+/* =========================================================
+   Error Shake
+========================================================= */
+
+.error-shake {
+  animation:
+    errorShake 0.45s ease-in-out;
+}
+
+@keyframes errorShake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20% {
+    transform: translateX(-5px);
+  }
+
+  40% {
+    transform: translateX(5px);
+  }
+
+  60% {
+    transform: translateX(-4px);
+  }
+
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+
+/* =========================================================
+   Skeleton
+========================================================= */
+
+.skeleton-wave {
+  position: relative;
+  overflow: hidden;
+
+  background:
+    #e7edf5;
+}
+
+.skeleton-wave::after {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  transform: translateX(-100%);
+
+  background:
+    linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.55),
+      transparent);
+
+  animation:
+    skeletonWave 1.4s infinite;
+}
+
+@keyframes skeletonWave {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+
+/* =========================================================
+   Scrollbar
+========================================================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #eef2f7;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #b8c4d6;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #8fa0b8;
+}
+
+
+/* =========================================================
+   Focus Accessibility
+========================================================= */
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.25);
+  outline-offset: 2px;
+}
+
+
+/* =========================================================
+   Reduced Motion
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .card:hover,
+  .btn:hover,
+  .glass-hover:hover,
+  .input:focus,
+  .textarea:focus,
+  .select:focus {
+    transform: none !important;
+  }
+}
+
+
+/* =========================================================
+   Mobile
+========================================================= */
+
+@media (max-width: 640px) {
+  body {
+    background:
+      radial-gradient(circle at 20% 5%,
+        rgba(37, 99, 235, 0.06),
+        transparent 30%),
+      #f5f8fc;
+  }
+
+  .card:hover {
+    transform: none;
+  }
+
+  .glass-hover:hover {
+    transform: none;
+  }
+
+  .btn:hover {
+    transform: translateY(-1px);
+  }
+}
+
+/* =========================================================
+   Mobile Responsive Improvements
+========================================================= */
+
+@media (max-width: 640px) {
+
+  /* Prevent horizontal overflow */
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Body */
+  body {
+    min-width: 0;
+    font-size: 14px;
+  }
+
+  /* Container */
+  .container {
+    width: 100%;
+    max-width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* Cards */
+  .card {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .card:hover {
+    transform: none;
+  }
+
+  /* Buttons */
+  .btn {
+    max-width: 100%;
+  }
+
+  /* Prevent buttons from overflowing */
+  button {
+    max-width: 100%;
+  }
+
+  /* Inputs */
+  .input,
+  .textarea,
+  .select {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .input:focus,
+  .textarea:focus,
+  .select:focus {
+    transform: none;
+  }
+
+  /* Images */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Tables */
+  .table-container,
+  .overflow-x-auto {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    min-width: 600px;
+  }
+
+  /* Navbar */
+  .navbar {
+    min-height: 4rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .navbar .btn {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  /* Headings */
+  h1 {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
+
+  /* Page spacing */
+  main {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Modal */
+  .modal-box {
+    width: calc(100% - 2rem);
+    max-width: calc(100% - 2rem);
+    margin: 1rem;
+    padding: 1.25rem;
+  }
+
+  /* Dropdown */
+  .dropdown-content {
+    max-width: calc(100vw - 2rem);
+  }
+
+  /* Glass */
+  .glass {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .glass-hover:hover {
+    transform: none;
+  }
+
+  /* Animations */
+  .float-animation,
+  .float-slow,
+  .pulse-glow {
+    animation-duration: 5s;
+  }
+
+  /* Buttons on mobile */
+  .btn:hover {
+    transform: translateY(-1px);
+  }
+
+  /* Long text */
+  p,
+  span,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    overflow-wrap: break-word;
+  }
+}
+
+
+/* =========================================================
+   Small Mobile Devices
+========================================================= */
+
+@media (max-width: 480px) {
+
+  body {
+    font-size: 13px;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+    line-height: 2rem;
+  }
+
+  h2 {
+    font-size: 1.35rem;
+    line-height: 1.75rem;
+  }
+
+  h3 {
+    font-size: 1.15rem;
+    line-height: 1.5rem;
+  }
+
+  .navbar {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  .card {
+    border-radius: 0.75rem;
+  }
+
+  .btn {
+    min-height: 2.5rem;
+  }
+
+  .modal-box {
+    width: calc(100% - 1rem);
+    max-width: calc(100% - 1rem);
+    margin: 0.5rem;
+    padding: 1rem;
+  }
+}
