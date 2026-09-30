@@ -1,5 +1,14 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import React, {
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
+
+import {
+    Link,
+    useLocation,
+} from "react-router-dom";
+
 import toast from "react-hot-toast";
 
 import {
@@ -11,11 +20,13 @@ import {
 
 
 const Complaints = () => {
+
     const location = useLocation();
 
-    // ========================================
+
+    // =====================================================
     // USER
-    // ========================================
+    // =====================================================
 
     const user = useMemo(() => {
         try {
@@ -27,18 +38,20 @@ const Complaints = () => {
         }
     }, []);
 
-    const isAdmin = user?.role === "admin";
 
-    // ========================================
-    // PAGE TYPE
-    // ========================================
+    const isAdmin =
+        String(user?.role || "")
+            .trim()
+            .toLowerCase() === "admin";
+
 
     const isMyComplaints =
         location.pathname === "/complaints/my";
 
-    // ========================================
+
+    // =====================================================
     // STATES
-    // ========================================
+    // =====================================================
 
     const [complaints, setComplaints] = useState([]);
 
@@ -57,11 +70,9 @@ const Complaints = () => {
     const [priorityFilter, setPriorityFilter] =
         useState("all");
 
-    const [startDate, setStartDate] =
-        useState("");
+    const [startDate, setStartDate] = useState("");
 
-    const [endDate, setEndDate] =
-        useState("");
+    const [endDate, setEndDate] = useState("");
 
     const [sortBy, setSortBy] =
         useState("created_at");
@@ -72,8 +83,9 @@ const Complaints = () => {
     const [currentPage, setCurrentPage] =
         useState(1);
 
-    const [pageSize] =
-        useState(5);
+    const pageSize = 5;
+
+    const [total, setTotal] = useState(0);
 
     const [hasNextPage, setHasNextPage] =
         useState(false);
@@ -81,9 +93,10 @@ const Complaints = () => {
     const [updatingId, setUpdatingId] =
         useState(null);
 
-    // ========================================
-    // HELPER FUNCTIONS
-    // ========================================
+
+    // =====================================================
+    // HELPERS
+    // =====================================================
 
     const getComplaintId = (complaint) => {
         return (
@@ -93,41 +106,67 @@ const Complaints = () => {
         );
     };
 
+
     const getTitle = (complaint) => {
-        return complaint?.title || "Untitled Complaint";
+        return (
+            complaint?.title ||
+            "Untitled Complaint"
+        );
     };
+
 
     const getDescription = (complaint) => {
-        return complaint?.description || "";
+        return (
+            complaint?.description ||
+            ""
+        );
     };
+
 
     const getCategory = (complaint) => {
-        return complaint?.category || "N/A";
+        return (
+            complaint?.category ||
+            "N/A"
+        );
     };
+
 
     const getLocation = (complaint) => {
-        return complaint?.location || "N/A";
+        return (
+            complaint?.location ||
+            "N/A"
+        );
     };
+
 
     const getStatus = (complaint) => {
-        return complaint?.status || "pending";
+        return (
+            complaint?.status ||
+            "pending"
+        );
     };
 
+
     const getPriority = (complaint) => {
-        return complaint?.priority || "normal";
+        return (
+            complaint?.priority ||
+            "medium"
+        );
     };
+
 
     const getDate = (complaint) => {
         return (
             complaint?.created_at ||
             complaint?.createdAt ||
             complaint?.date ||
-            complaint?.updated_at ||
             ""
         );
     };
 
+
     const getUserName = (complaint) => {
+
         if (complaint?.user?.username) {
             return complaint.user.username;
         }
@@ -143,333 +182,171 @@ const Complaints = () => {
         return "Unknown";
     };
 
+
     const formatDate = (dateValue) => {
+
         if (!dateValue) {
             return "N/A";
         }
 
         const date = new Date(dateValue);
 
-        if (Number.isNaN(date.getTime())) {
+        if (
+            Number.isNaN(date.getTime())
+        ) {
             return String(dateValue);
         }
 
         return date.toLocaleString();
     };
 
-    // ========================================
+
+    // =====================================================
+    // EXTRACT RESPONSE
+    // =====================================================
+
+    const extractComplaints = (data) => {
+
+        if (Array.isArray(data)) {
+            return {
+                items: data,
+                total: data.length,
+            };
+        }
+
+
+        if (Array.isArray(data?.items)) {
+            return {
+                items: data.items,
+                total:
+                    typeof data.total === "number"
+                        ? data.total
+                        : data.items.length,
+            };
+        }
+
+
+        if (
+            Array.isArray(
+                data?.complaints
+            )
+        ) {
+            return {
+                items: data.complaints,
+                total:
+                    typeof data.total === "number"
+                        ? data.total
+                        : data.complaints.length,
+            };
+        }
+
+
+        if (Array.isArray(data?.data)) {
+            return {
+                items: data.data,
+                total:
+                    typeof data.total === "number"
+                        ? data.total
+                        : data.data.length,
+            };
+        }
+
+
+        return {
+            items: [],
+            total: 0,
+        };
+    };
+
+
+    // =====================================================
     // LOAD COMPLAINTS
-    // ========================================
+    // =====================================================
 
     const loadComplaints = async () => {
+
         try {
+
             setLoading(true);
             setError("");
 
-            // ====================================
-            // MY COMPLAINTS
-            // ====================================
 
-            if (isMyComplaints) {
+            // =================================================
+            // NORMAL USER
+            // =================================================
+
+            if (!isAdmin) {
+
                 const data =
-                    await getMyComplaints();
+                    await getMyComplaints({
+                        search: search.trim(),
 
-                let result = [];
+                        category:
+                            categoryFilter === "all"
+                                ? ""
+                                : categoryFilter,
 
-                if (Array.isArray(data)) {
-                    result = data;
-                } else if (
-                    Array.isArray(data?.items)
-                ) {
-                    result = data.items;
-                } else if (
-                    Array.isArray(data?.data)
-                ) {
-                    result = data.data;
-                } else if (
-                    Array.isArray(data?.complaints)
-                ) {
-                    result = data.complaints;
-                }
+                        status:
+                            statusFilter === "all"
+                                ? ""
+                                : statusFilter,
 
-                // -------------------------------
-                // SEARCH
-                // -------------------------------
+                        priority:
+                            priorityFilter === "all"
+                                ? ""
+                                : priorityFilter,
 
-                const searchValue =
-                    search.trim().toLowerCase();
+                        startDate,
+                        endDate,
+                        sortBy,
+                        order,
+                    });
 
-                if (searchValue) {
-                    result = result.filter(
-                        (complaint) => {
-                            const title =
-                                getTitle(
-                                    complaint
-                                ).toLowerCase();
 
-                            const description =
-                                getDescription(
-                                    complaint
-                                ).toLowerCase();
+                const extracted =
+                    extractComplaints(data);
 
-                            const category =
-                                getCategory(
-                                    complaint
-                                ).toLowerCase();
 
-                            const location =
-                                getLocation(
-                                    complaint
-                                ).toLowerCase();
-
-                            const id = String(
-                                getComplaintId(
-                                    complaint
-                                ) || ""
-                            ).toLowerCase();
-
-                            return (
-                                title.includes(
-                                    searchValue
-                                ) ||
-                                description.includes(
-                                    searchValue
-                                ) ||
-                                category.includes(
-                                    searchValue
-                                ) ||
-                                location.includes(
-                                    searchValue
-                                ) ||
-                                id.includes(
-                                    searchValue
-                                )
-                            );
-                        }
-                    );
-                }
-
-                // -------------------------------
-                // CATEGORY
-                // -------------------------------
-
-                if (
-                    categoryFilter !== "all"
-                ) {
-                    result = result.filter(
-                        (complaint) =>
-                            getCategory(
-                                complaint
-                            ).toLowerCase() ===
-                            categoryFilter.toLowerCase()
-                    );
-                }
-
-                // -------------------------------
-                // STATUS
-                // -------------------------------
-
-                if (
-                    statusFilter !== "all"
-                ) {
-                    result = result.filter(
-                        (complaint) =>
-                            getStatus(
-                                complaint
-                            ).toLowerCase() ===
-                            statusFilter.toLowerCase()
-                    );
-                }
-
-                // -------------------------------
-                // PRIORITY
-                // -------------------------------
-
-                if (
-                    priorityFilter !== "all"
-                ) {
-                    result = result.filter(
-                        (complaint) =>
-                            getPriority(
-                                complaint
-                            ).toLowerCase() ===
-                            priorityFilter.toLowerCase()
-                    );
-                }
-
-                // -------------------------------
-                // START DATE
-                // -------------------------------
-
-                if (startDate) {
-                    const start =
-                        new Date(
-                            `${startDate}T00:00:00`
-                        );
-
-                    result = result.filter(
-                        (complaint) => {
-                            const date =
-                                new Date(
-                                    getDate(
-                                        complaint
-                                    )
-                                );
-
-                            return (
-                                !Number.isNaN(
-                                    date.getTime()
-                                ) &&
-                                date >= start
-                            );
-                        }
-                    );
-                }
-
-                // -------------------------------
-                // END DATE
-                // -------------------------------
-
-                if (endDate) {
-                    const end =
-                        new Date(
-                            `${endDate}T23:59:59`
-                        );
-
-                    result = result.filter(
-                        (complaint) => {
-                            const date =
-                                new Date(
-                                    getDate(
-                                        complaint
-                                    )
-                                );
-
-                            return (
-                                !Number.isNaN(
-                                    date.getTime()
-                                ) &&
-                                date <= end
-                            );
-                        }
-                    );
-                }
-
-                // -------------------------------
-                // SORT
-                // -------------------------------
-
-                result.sort(
-                    (a, b) => {
-                        let first;
-                        let second;
-
-                        if (
-                            sortBy === "title"
-                        ) {
-                            first =
-                                getTitle(
-                                    a
-                                ).toLowerCase();
-
-                            second =
-                                getTitle(
-                                    b
-                                ).toLowerCase();
-                        } else if (
-                            sortBy === "status"
-                        ) {
-                            first =
-                                getStatus(
-                                    a
-                                ).toLowerCase();
-
-                            second =
-                                getStatus(
-                                    b
-                                ).toLowerCase();
-                        } else if (
-                            sortBy === "priority"
-                        ) {
-                            first =
-                                getPriority(
-                                    a
-                                ).toLowerCase();
-
-                            second =
-                                getPriority(
-                                    b
-                                ).toLowerCase();
-                        } else {
-                            first =
-                                new Date(
-                                    getDate(a)
-                                ).getTime();
-
-                            second =
-                                new Date(
-                                    getDate(b)
-                                ).getTime();
-                        }
-
-                        if (first < second) {
-                            return order ===
-                                "asc"
-                                ? -1
-                                : 1;
-                        }
-
-                        if (first > second) {
-                            return order ===
-                                "asc"
-                                ? 1
-                                : -1;
-                        }
-
-                        return 0;
-                    }
+                setComplaints(
+                    extracted.items
                 );
 
-                setComplaints(result);
+                setTotal(
+                    extracted.total
+                );
 
                 setHasNextPage(false);
 
                 return;
             }
 
-            // ====================================
-            // ALL COMPLAINTS
-            // ====================================
+
+            // =================================================
+            // ADMIN
+            // =================================================
 
             const data =
                 await getComplaints({
-                    search:
-                        search.trim(),
+                    search: search.trim(),
 
                     category:
-                        categoryFilter ===
-                            "all"
+                        categoryFilter === "all"
                             ? ""
                             : categoryFilter,
 
                     status:
-                        statusFilter ===
-                            "all"
+                        statusFilter === "all"
                             ? ""
                             : statusFilter,
 
                     priority:
-                        priorityFilter ===
-                            "all"
+                        priorityFilter === "all"
                             ? ""
                             : priorityFilter,
 
                     startDate,
-
                     endDate,
-
                     sortBy,
-
                     order,
 
                     page: currentPage,
@@ -477,75 +354,27 @@ const Complaints = () => {
                     pageSize,
                 });
 
-            let result = [];
 
-            let total = null;
+            const extracted =
+                extractComplaints(data);
 
-            // -------------------------------
-            // RESPONSE ARRAY
-            // -------------------------------
 
-            if (Array.isArray(data)) {
-                result = data;
-            }
+            setComplaints(
+                extracted.items
+            );
 
-            // -------------------------------
-            // RESPONSE {items: []}
-            // -------------------------------
+            setTotal(
+                extracted.total
+            );
 
-            else if (
-                Array.isArray(data?.items)
-            ) {
-                result = data.items;
-                total = data.total;
-            }
 
-            // -------------------------------
-            // RESPONSE {data: []}
-            // -------------------------------
-
-            else if (
-                Array.isArray(data?.data)
-            ) {
-                result = data.data;
-                total = data.total;
-            }
-
-            // -------------------------------
-            // RESPONSE {complaints: []}
-            // -------------------------------
-
-            else if (
-                Array.isArray(
-                    data?.complaints
-                )
-            ) {
-                result = data.complaints;
-                total = data.total;
-            }
-
-            setComplaints(result);
-
-            // -------------------------------
-            // PAGINATION
-            // -------------------------------
-
-            if (
-                typeof total === "number"
-            ) {
-                setHasNextPage(
-                    currentPage *
-                    pageSize <
-                    total
-                );
-            } else {
-                setHasNextPage(
-                    result.length ===
-                    pageSize
-                );
-            }
+            setHasNextPage(
+                currentPage * pageSize <
+                extracted.total
+            );
 
         } catch (err) {
+
             console.error(
                 "LOAD COMPLAINTS ERROR:",
                 err
@@ -558,20 +387,28 @@ const Complaints = () => {
 
             setComplaints([]);
 
+            setTotal(0);
+
             setHasNextPage(false);
 
         } finally {
+
             setLoading(false);
+
         }
     };
 
-    // ========================================
-    // LOAD WHEN FILTER CHANGES
-    // ========================================
+
+    // =====================================================
+    // LOAD
+    // =====================================================
 
     useEffect(() => {
+
         loadComplaints();
+
     }, [
+        isAdmin,
         isMyComplaints,
         currentPage,
         categoryFilter,
@@ -583,11 +420,13 @@ const Complaints = () => {
         endDate,
     ]);
 
-    // ========================================
+
+    // =====================================================
     // SEARCH
-    // ========================================
+    // =====================================================
 
     const handleSearch = (e) => {
+
         e.preventDefault();
 
         setCurrentPage(1);
@@ -595,45 +434,74 @@ const Complaints = () => {
         loadComplaints();
     };
 
-    // ========================================
+
+    // =====================================================
     // CLEAR FILTERS
-    // ========================================
+    // =====================================================
 
     const clearFilters = () => {
+
         setSearch("");
+
         setCategoryFilter("all");
+
         setStatusFilter("all");
+
         setPriorityFilter("all");
+
         setStartDate("");
+
         setEndDate("");
+
         setSortBy("created_at");
+
         setOrder("desc");
+
         setCurrentPage(1);
     };
 
-    // ========================================
-    // UPDATE STATUS
-    // ========================================
+
+    // =====================================================
+    // STATUS UPDATE
+    // =====================================================
 
     const handleStatusChange = async (
         complaintId,
         status
     ) => {
+
+        if (!isAdmin) {
+
+            toast.error(
+                "Only admin can update complaint status"
+            );
+
+            return;
+        }
+
+
         try {
-            setUpdatingId(complaintId);
+
+            setUpdatingId(
+                complaintId
+            );
+
 
             await updateComplaintStatus(
                 complaintId,
                 status
             );
 
+
             toast.success(
-                "Complaint status updated"
+                "Complaint status updated successfully"
             );
+
 
             await loadComplaints();
 
         } catch (err) {
+
             console.error(
                 "STATUS UPDATE ERROR:",
                 err
@@ -645,33 +513,54 @@ const Complaints = () => {
             );
 
         } finally {
+
             setUpdatingId(null);
+
         }
     };
 
-    // ========================================
-    // UPDATE PRIORITY
-    // ========================================
+
+    // =====================================================
+    // PRIORITY UPDATE
+    // =====================================================
 
     const handlePriorityChange = async (
         complaintId,
         priority
     ) => {
+
+        if (!isAdmin) {
+
+            toast.error(
+                "Only admin can update complaint priority"
+            );
+
+            return;
+        }
+
+
         try {
-            setUpdatingId(complaintId);
+
+            setUpdatingId(
+                complaintId
+            );
+
 
             await updateComplaintPriority(
                 complaintId,
                 priority
             );
 
+
             toast.success(
-                "Complaint priority updated"
+                "Complaint priority updated successfully"
             );
+
 
             await loadComplaints();
 
         } catch (err) {
+
             console.error(
                 "PRIORITY UPDATE ERROR:",
                 err
@@ -683,52 +572,54 @@ const Complaints = () => {
             );
 
         } finally {
+
             setUpdatingId(null);
+
         }
     };
 
-    // ========================================
-    // STATUS BADGE
-    // ========================================
+
+    // =====================================================
+    // STATUS CLASS
+    // =====================================================
 
     const getStatusClass = (status) => {
+
         const value =
             String(status)
-                .toLowerCase();
+                .toLowerCase()
+                .replace(/ /g, "_");
 
-        if (
-            value === "resolved" ||
-            value === "completed"
-        ) {
+
+        if (value === "resolved") {
             return "bg-green-100 text-green-700";
         }
 
-        if (
-            value === "in progress" ||
-            value === "in_progress" ||
-            value === "processing"
-        ) {
+
+        if (value === "in_progress") {
             return "bg-blue-100 text-blue-700";
         }
 
-        if (
-            value === "rejected" ||
-            value === "cancelled"
-        ) {
+
+        if (value === "rejected") {
             return "bg-red-100 text-red-700";
         }
+
 
         return "bg-yellow-100 text-yellow-700";
     };
 
-    // ========================================
-    // PRIORITY BADGE
-    // ========================================
+
+    // =====================================================
+    // PRIORITY CLASS
+    // =====================================================
 
     const getPriorityClass = (priority) => {
+
         const value =
             String(priority)
                 .toLowerCase();
+
 
         if (
             value === "high" ||
@@ -738,43 +629,74 @@ const Complaints = () => {
             return "bg-red-100 text-red-700";
         }
 
+
         if (value === "medium") {
             return "bg-orange-100 text-orange-700";
         }
 
+
         return "bg-green-100 text-green-700";
     };
 
-    // ========================================
+
+    // =====================================================
+    // DISPLAY STATUS
+    // =====================================================
+
+    const displayStatus = (status) => {
+
+        if (status === "in_progress") {
+            return "In Progress";
+        }
+
+        return (
+            String(status)
+                .replace(/_/g, " ")
+                .replace(
+                    /\b\w/g,
+                    (char) =>
+                        char.toUpperCase()
+                )
+        );
+    };
+
+
+    // =====================================================
     // LOADING
-    // ========================================
+    // =====================================================
 
     if (loading) {
+
         return (
+
             <div className="min-h-screen bg-gray-50 px-3 sm:px-5 md:px-6 py-5 sm:py-6">
 
                 <div className="max-w-7xl mx-auto">
 
                     <div className="mb-5 sm:mb-6">
 
-                        <div className="h-7 sm:h-8 w-44 sm:w-64 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="h-8 w-52 bg-gray-200 rounded animate-pulse"></div>
 
-                        <div className="h-3 sm:h-4 w-64 sm:w-96 bg-gray-200 rounded mt-3 animate-pulse"></div>
+                        <div className="h-4 w-80 bg-gray-200 rounded mt-3 animate-pulse"></div>
 
                     </div>
 
-                    <div className="bg-white rounded-xl shadow p-4 sm:p-6">
+
+                    <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
 
                         <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
 
-                        <div className="space-y-3 sm:space-y-4 mt-5 sm:mt-6">
+
+                        <div className="space-y-4 mt-6">
 
                             {[1, 2, 3, 4, 5].map(
                                 (item) => (
+
                                     <div
                                         key={item}
                                         className="h-20 bg-gray-100 rounded animate-pulse"
-                                    ></div>
+                                    />
+
                                 )
                             )}
 
@@ -788,62 +710,98 @@ const Complaints = () => {
         );
     }
 
-    // ========================================
-    // UI
-    // ========================================
+
+    // =====================================================
+    // MAIN UI
+    // =====================================================
 
     return (
+
         <div className="min-h-screen bg-gray-50 px-3 sm:px-5 md:px-6 py-5 sm:py-6 md:py-8">
 
             <div className="max-w-7xl mx-auto">
 
-                {/* ================================= */}
-                {/* HEADER */}
-                {/* ================================= */}
 
-                <div className="mb-5 sm:mb-6">
+                {/* =================================================
+                    HEADER
+                ================================================= */}
 
-                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 break-words">
-                        {isMyComplaints
-                            ? "My Complaints"
-                            : "Complaints"}
-                    </h1>
+                <div className="mb-5 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 
-                    <p className="text-sm sm:text-base text-gray-500 mt-1">
-                        {isMyComplaints
-                            ? "View and manage your submitted complaints."
-                            : "View and manage citizen complaints."}
-                    </p>
+                    <div>
+
+                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 break-words">
+
+                            {isAdmin
+                                ? "Complaints"
+                                : "My Complaints"}
+
+                        </h1>
+
+
+                        <p className="text-sm sm:text-base text-gray-500 mt-1">
+
+                            {isAdmin
+                                ? "View and manage citizen complaints."
+                                : "View and manage your submitted complaints."}
+
+                        </p>
+
+                    </div>
+
+
+                    {/* =================================================
+                        CREATE COMPLAINT
+                    ================================================= */}
+
+                    {!isAdmin && (
+
+                        <Link
+                            to="/complaints/create"
+                            className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-2.5 bg-blue-600 text-white text-sm sm:text-base font-medium rounded-lg hover:bg-blue-700 transition shadow-sm"
+                        >
+
+                            <span className="text-xl leading-none">
+                                +
+                            </span>
+
+                            Create Complaint
+
+                        </Link>
+
+                    )}
 
                 </div>
 
 
-                {/* ================================= */}
-                {/* ERROR */}
-                {/* ================================= */}
+                {/* =================================================
+                    ERROR
+                ================================================= */}
 
                 {error && (
+
                     <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3 sm:p-4">
 
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
 
-                            <div className="min-w-0">
+                            <div>
 
-                                <h3 className="font-semibold text-sm sm:text-base text-red-700">
+                                <h3 className="font-semibold text-red-700">
                                     Failed to Load Complaints
                                 </h3>
 
-                                <p className="text-xs sm:text-sm text-red-600 mt-1 break-words">
+                                <p className="text-sm text-red-600 mt-1">
                                     {error}
                                 </p>
 
                             </div>
 
+
                             <button
                                 onClick={
                                     loadComplaints
                                 }
-                                className="w-full sm:w-auto shrink-0 px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition"
+                                className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
                             >
                                 Retry
                             </button>
@@ -851,12 +809,13 @@ const Complaints = () => {
                         </div>
 
                     </div>
+
                 )}
 
 
-                {/* ================================= */}
-                {/* FILTER CARD */}
-                {/* ================================= */}
+                {/* =================================================
+                    FILTERS
+                ================================================= */}
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5 mb-5 sm:mb-6">
 
@@ -868,11 +827,12 @@ const Complaints = () => {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
 
+
                             {/* SEARCH */}
 
                             <div className="sm:col-span-2 lg:col-span-2">
 
-                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Search
                                 </label>
 
@@ -885,7 +845,7 @@ const Complaints = () => {
                                         )
                                     }
                                     placeholder="Search complaints..."
-                                    className="w-full px-3 sm:px-4 py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-3 sm:px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
 
                             </div>
@@ -895,7 +855,7 @@ const Complaints = () => {
 
                             <div>
 
-                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Category
                                 </label>
 
@@ -904,14 +864,15 @@ const Complaints = () => {
                                         categoryFilter
                                     }
                                     onChange={(e) => {
+
                                         setCategoryFilter(
                                             e.target.value
                                         );
-                                        setCurrentPage(
-                                            1
-                                        );
+
+                                        setCurrentPage(1);
+
                                     }}
-                                    className="w-full px-3 py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
 
                                     <option value="all">
@@ -955,7 +916,7 @@ const Complaints = () => {
 
                             <div>
 
-                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Status
                                 </label>
 
@@ -964,14 +925,15 @@ const Complaints = () => {
                                         statusFilter
                                     }
                                     onChange={(e) => {
+
                                         setStatusFilter(
                                             e.target.value
                                         );
-                                        setCurrentPage(
-                                            1
-                                        );
+
+                                        setCurrentPage(1);
+
                                     }}
-                                    className="w-full px-3 py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
 
                                     <option value="all">
@@ -982,7 +944,7 @@ const Complaints = () => {
                                         Pending
                                     </option>
 
-                                    <option value="in progress">
+                                    <option value="in_progress">
                                         In Progress
                                     </option>
 
@@ -1003,7 +965,7 @@ const Complaints = () => {
 
                             <div>
 
-                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Priority
                                 </label>
 
@@ -1012,14 +974,15 @@ const Complaints = () => {
                                         priorityFilter
                                     }
                                     onChange={(e) => {
+
                                         setPriorityFilter(
                                             e.target.value
                                         );
-                                        setCurrentPage(
-                                            1
-                                        );
+
+                                        setCurrentPage(1);
+
                                     }}
-                                    className="w-full px-3 py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
 
                                     <option value="all">
@@ -1030,20 +993,12 @@ const Complaints = () => {
                                         Low
                                     </option>
 
-                                    <option value="normal">
-                                        Normal
-                                    </option>
-
                                     <option value="medium">
                                         Medium
                                     </option>
 
                                     <option value="high">
                                         High
-                                    </option>
-
-                                    <option value="urgent">
-                                        Urgent
                                     </option>
 
                                 </select>
@@ -1055,7 +1010,7 @@ const Complaints = () => {
 
                             <div>
 
-                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Start Date
                                 </label>
 
@@ -1065,14 +1020,15 @@ const Complaints = () => {
                                         startDate
                                     }
                                     onChange={(e) => {
+
                                         setStartDate(
                                             e.target.value
                                         );
-                                        setCurrentPage(
-                                            1
-                                        );
+
+                                        setCurrentPage(1);
+
                                     }}
-                                    className="w-full px-3 py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
 
                             </div>
@@ -1082,7 +1038,7 @@ const Complaints = () => {
 
                             <div>
 
-                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
                                     End Date
                                 </label>
 
@@ -1092,24 +1048,25 @@ const Complaints = () => {
                                         endDate
                                     }
                                     onChange={(e) => {
+
                                         setEndDate(
                                             e.target.value
                                         );
-                                        setCurrentPage(
-                                            1
-                                        );
+
+                                        setCurrentPage(1);
+
                                     }}
-                                    className="w-full px-3 py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
 
                             </div>
 
 
-                            {/* SORT */}
+                            {/* SORT BY */}
 
                             <div>
 
-                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Sort By
                                 </label>
 
@@ -1118,14 +1075,15 @@ const Complaints = () => {
                                         sortBy
                                     }
                                     onChange={(e) => {
+
                                         setSortBy(
                                             e.target.value
                                         );
-                                        setCurrentPage(
-                                            1
-                                        );
+
+                                        setCurrentPage(1);
+
                                     }}
-                                    className="w-full px-3 py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
 
                                     <option value="created_at">
@@ -1153,7 +1111,7 @@ const Complaints = () => {
 
                             <div>
 
-                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Order
                                 </label>
 
@@ -1162,14 +1120,15 @@ const Complaints = () => {
                                         order
                                     }
                                     onChange={(e) => {
+
                                         setOrder(
                                             e.target.value
                                         );
-                                        setCurrentPage(
-                                            1
-                                        );
+
+                                        setCurrentPage(1);
+
                                     }}
-                                    className="w-full px-3 py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
 
                                     <option value="desc">
@@ -1189,21 +1148,22 @@ const Complaints = () => {
 
                         {/* BUTTONS */}
 
-                        <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 mt-4 sm:mt-5">
+                        <div className="flex flex-col sm:flex-row gap-3 mt-5">
 
                             <button
                                 type="submit"
-                                className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 text-white text-sm sm:text-base rounded-lg hover:bg-blue-700 transition"
+                                className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                             >
                                 Search
                             </button>
+
 
                             <button
                                 type="button"
                                 onClick={
                                     clearFilters
                                 }
-                                className="w-full sm:w-auto px-5 py-2.5 bg-gray-100 text-gray-700 text-sm sm:text-base rounded-lg hover:bg-gray-200 transition"
+                                className="w-full sm:w-auto px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
                             >
                                 Clear Filters
                             </button>
@@ -1215,22 +1175,28 @@ const Complaints = () => {
                 </div>
 
 
-                {/* ================================= */}
-                {/* COMPLAINT COUNT */}
-                {/* ================================= */}
+                {/* =================================================
+                    COUNT
+                ================================================= */}
 
                 <div className="mb-3 sm:mb-4">
 
-                    <p className="text-xs sm:text-sm text-gray-500">
+                    <p className="text-sm text-gray-500">
 
                         Showing{" "}
 
                         <span className="font-semibold text-gray-700">
                             {complaints.length}
-                        </span>{" "}
+                        </span>
 
-                        complaint
-                        {complaints.length !== 1
+                        {" "}of{" "}
+
+                        <span className="font-semibold text-gray-700">
+                            {total}
+                        </span>
+
+                        {" "}complaint
+                        {total !== 1
                             ? "s"
                             : ""}
 
@@ -1239,15 +1205,15 @@ const Complaints = () => {
                 </div>
 
 
-                {/* ================================= */}
-                {/* EMPTY */}
-                {/* ================================= */}
+                {/* =================================================
+                    EMPTY
+                ================================================= */}
 
                 {complaints.length === 0 ? (
 
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 sm:p-12 text-center">
 
-                        <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">
+                        <div className="text-5xl mb-4">
                             📋
                         </div>
 
@@ -1259,14 +1225,34 @@ const Complaints = () => {
                             Try changing your search or filters.
                         </p>
 
+
+                        {!isAdmin && (
+
+                            <Link
+                                to="/complaints/create"
+                                className="inline-flex items-center gap-2 mt-5 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                            >
+
+                                <span className="text-lg">
+                                    +
+                                </span>
+
+                                Create Complaint
+
+                            </Link>
+
+                        )}
+
                     </div>
 
                 ) : (
 
                     <>
-                        {/* ================================= */}
-                        {/* MOBILE / TABLET CARDS */}
-                        {/* ================================= */}
+
+
+                        {/* =================================================
+                            MOBILE / TABLET
+                        ================================================= */}
 
                         <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:hidden">
 
@@ -1292,10 +1278,11 @@ const Complaints = () => {
                                         );
 
                                     const isUpdating =
-                                        updatingId ===
-                                        id;
+                                        updatingId === id;
+
 
                                     return (
+
                                         <div
                                             key={
                                                 id ??
@@ -1304,9 +1291,7 @@ const Complaints = () => {
                                             className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5"
                                         >
 
-                                            {/* CARD HEADER */}
-
-                                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                            <div className="flex items-start justify-between gap-3">
 
                                                 <div className="min-w-0">
 
@@ -1318,6 +1303,7 @@ const Complaints = () => {
                                                         }
                                                     </h3>
 
+
                                                     <p className="text-xs sm:text-sm text-gray-500 mt-1 line-clamp-3">
                                                         {
                                                             getDescription(
@@ -1326,8 +1312,10 @@ const Complaints = () => {
                                                         }
                                                     </p>
 
-                                                    {!isMyComplaints && (
-                                                        <p className="text-xs text-gray-400 mt-2 break-words">
+
+                                                    {isAdmin && (
+
+                                                        <p className="text-xs text-gray-400 mt-2">
                                                             User:{" "}
                                                             {
                                                                 getUserName(
@@ -1335,9 +1323,11 @@ const Complaints = () => {
                                                                 )
                                                             }
                                                         </p>
+
                                                     )}
 
                                                 </div>
+
 
                                                 <span className="shrink-0 text-xs text-gray-400">
                                                     #{id ?? "N/A"}
@@ -1346,9 +1336,8 @@ const Complaints = () => {
                                             </div>
 
 
-                                            {/* CARD INFO */}
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-100">
 
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 pt-4 border-t border-gray-100">
 
                                                 {/* CATEGORY */}
 
@@ -1358,7 +1347,7 @@ const Complaints = () => {
                                                         Category
                                                     </p>
 
-                                                    <span className="inline-block max-w-full px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-xs sm:text-sm break-words">
+                                                    <span className="inline-block px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-xs sm:text-sm">
                                                         {
                                                             getCategory(
                                                                 complaint
@@ -1371,7 +1360,7 @@ const Complaints = () => {
 
                                                 {/* LOCATION */}
 
-                                                <div className="min-w-0">
+                                                <div>
 
                                                     <p className="text-xs text-gray-400 mb-1">
                                                         Location
@@ -1396,6 +1385,7 @@ const Complaints = () => {
                                                         Priority
                                                     </p>
 
+
                                                     {isAdmin ? (
 
                                                         <select
@@ -1410,12 +1400,10 @@ const Complaints = () => {
                                                             ) =>
                                                                 handlePriorityChange(
                                                                     id,
-                                                                    e
-                                                                        .target
-                                                                        .value
+                                                                    e.target.value
                                                                 )
                                                             }
-                                                            className={`w-full sm:w-auto max-w-full px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border-0 focus:ring-2 focus:ring-blue-500 ${getPriorityClass(
+                                                            className={`w-full px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border-0 focus:ring-2 focus:ring-blue-500 ${getPriorityClass(
                                                                 priority
                                                             )}`}
                                                         >
@@ -1424,20 +1412,12 @@ const Complaints = () => {
                                                                 Low
                                                             </option>
 
-                                                            <option value="normal">
-                                                                Normal
-                                                            </option>
-
                                                             <option value="medium">
                                                                 Medium
                                                             </option>
 
                                                             <option value="high">
                                                                 High
-                                                            </option>
-
-                                                            <option value="urgent">
-                                                                Urgent
                                                             </option>
 
                                                         </select>
@@ -1467,6 +1447,7 @@ const Complaints = () => {
                                                         Status
                                                     </p>
 
+
                                                     {isAdmin ? (
 
                                                         <select
@@ -1481,12 +1462,10 @@ const Complaints = () => {
                                                             ) =>
                                                                 handleStatusChange(
                                                                     id,
-                                                                    e
-                                                                        .target
-                                                                        .value
+                                                                    e.target.value
                                                                 )
                                                             }
-                                                            className={`w-full sm:w-auto max-w-full px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border-0 focus:ring-2 focus:ring-blue-500 ${getStatusClass(
+                                                            className={`w-full px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border-0 focus:ring-2 focus:ring-blue-500 ${getStatusClass(
                                                                 status
                                                             )}`}
                                                         >
@@ -1495,7 +1474,7 @@ const Complaints = () => {
                                                                 Pending
                                                             </option>
 
-                                                            <option value="in progress">
+                                                            <option value="in_progress">
                                                                 In Progress
                                                             </option>
 
@@ -1512,12 +1491,14 @@ const Complaints = () => {
                                                     ) : (
 
                                                         <span
-                                                            className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize ${getStatusClass(
+                                                            className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusClass(
                                                                 status
                                                             )}`}
                                                         >
                                                             {
-                                                                status
+                                                                displayStatus(
+                                                                    status
+                                                                )
                                                             }
                                                         </span>
 
@@ -1536,17 +1517,20 @@ const Complaints = () => {
                                                     Date
                                                 </p>
 
-                                                <p className="text-xs sm:text-sm text-gray-500 break-words">
-                                                    {formatDate(
-                                                        getDate(
-                                                            complaint
+                                                <p className="text-xs sm:text-sm text-gray-500">
+                                                    {
+                                                        formatDate(
+                                                            getDate(
+                                                                complaint
+                                                            )
                                                         )
-                                                    )}
+                                                    }
                                                 </p>
 
                                             </div>
 
                                         </div>
+
                                     );
                                 }
                             )}
@@ -1554,9 +1538,9 @@ const Complaints = () => {
                         </div>
 
 
-                        {/* ================================= */}
-                        {/* DESKTOP TABLE */}
-                        {/* ================================= */}
+                        {/* =================================================
+                            DESKTOP TABLE
+                        ================================================= */}
 
                         <div className="hidden lg:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
 
@@ -1568,27 +1552,27 @@ const Complaints = () => {
 
                                         <tr>
 
-                                            <th className="px-4 xl:px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+                                            <th className="px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
                                                 Complaint
                                             </th>
 
-                                            <th className="px-4 xl:px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+                                            <th className="px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
                                                 Category
                                             </th>
 
-                                            <th className="px-4 xl:px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+                                            <th className="px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
                                                 Location
                                             </th>
 
-                                            <th className="px-4 xl:px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+                                            <th className="px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
                                                 Priority
                                             </th>
 
-                                            <th className="px-4 xl:px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+                                            <th className="px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
                                                 Status
                                             </th>
 
-                                            <th className="px-4 xl:px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+                                            <th className="px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
                                                 Date
                                             </th>
 
@@ -1621,8 +1605,8 @@ const Complaints = () => {
                                                     );
 
                                                 const isUpdating =
-                                                    updatingId ===
-                                                    id;
+                                                    updatingId === id;
+
 
                                                 return (
 
@@ -1634,11 +1618,12 @@ const Complaints = () => {
                                                         className="hover:bg-gray-50 transition"
                                                     >
 
+
                                                         {/* COMPLAINT */}
 
-                                                        <td className="px-4 xl:px-5 py-4">
+                                                        <td className="px-5 py-4">
 
-                                                            <div className="max-w-xs">
+                                                            <div className="max-w-sm">
 
                                                                 <p className="font-semibold text-gray-800 break-words">
                                                                     {
@@ -1648,6 +1633,7 @@ const Complaints = () => {
                                                                     }
                                                                 </p>
 
+
                                                                 <p className="text-sm text-gray-500 mt-1 line-clamp-2">
                                                                     {
                                                                         getDescription(
@@ -1656,8 +1642,10 @@ const Complaints = () => {
                                                                     }
                                                                 </p>
 
-                                                                {!isMyComplaints && (
-                                                                    <p className="text-xs text-gray-400 mt-1 break-words">
+
+                                                                {isAdmin && (
+
+                                                                    <p className="text-xs text-gray-400 mt-1">
                                                                         User:{" "}
                                                                         {
                                                                             getUserName(
@@ -1665,6 +1653,7 @@ const Complaints = () => {
                                                                             )
                                                                         }
                                                                     </p>
+
                                                                 )}
 
                                                             </div>
@@ -1674,9 +1663,9 @@ const Complaints = () => {
 
                                                         {/* CATEGORY */}
 
-                                                        <td className="px-4 xl:px-5 py-4">
+                                                        <td className="px-5 py-4">
 
-                                                            <span className="inline-block max-w-[140px] px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm break-words">
+                                                            <span className="inline-block px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm">
                                                                 {
                                                                     getCategory(
                                                                         complaint
@@ -1689,9 +1678,9 @@ const Complaints = () => {
 
                                                         {/* LOCATION */}
 
-                                                        <td className="px-4 xl:px-5 py-4">
+                                                        <td className="px-5 py-4">
 
-                                                            <span className="text-sm text-gray-600 break-words">
+                                                            <span className="text-sm text-gray-600">
                                                                 {
                                                                     getLocation(
                                                                         complaint
@@ -1704,7 +1693,7 @@ const Complaints = () => {
 
                                                         {/* PRIORITY */}
 
-                                                        <td className="px-4 xl:px-5 py-4">
+                                                        <td className="px-5 py-4">
 
                                                             {isAdmin ? (
 
@@ -1720,9 +1709,7 @@ const Complaints = () => {
                                                                     ) =>
                                                                         handlePriorityChange(
                                                                             id,
-                                                                            e
-                                                                                .target
-                                                                                .value
+                                                                            e.target.value
                                                                         )
                                                                     }
                                                                     className={`max-w-[120px] px-3 py-1.5 rounded-lg text-sm font-medium border-0 focus:ring-2 focus:ring-blue-500 ${getPriorityClass(
@@ -1734,20 +1721,12 @@ const Complaints = () => {
                                                                         Low
                                                                     </option>
 
-                                                                    <option value="normal">
-                                                                        Normal
-                                                                    </option>
-
                                                                     <option value="medium">
                                                                         Medium
                                                                     </option>
 
                                                                     <option value="high">
                                                                         High
-                                                                    </option>
-
-                                                                    <option value="urgent">
-                                                                        Urgent
                                                                     </option>
 
                                                                 </select>
@@ -1771,7 +1750,7 @@ const Complaints = () => {
 
                                                         {/* STATUS */}
 
-                                                        <td className="px-4 xl:px-5 py-4">
+                                                        <td className="px-5 py-4">
 
                                                             {isAdmin ? (
 
@@ -1787,12 +1766,10 @@ const Complaints = () => {
                                                                     ) =>
                                                                         handleStatusChange(
                                                                             id,
-                                                                            e
-                                                                                .target
-                                                                                .value
+                                                                            e.target.value
                                                                         )
                                                                     }
-                                                                    className={`max-w-[135px] px-3 py-1.5 rounded-lg text-sm font-medium border-0 focus:ring-2 focus:ring-blue-500 ${getStatusClass(
+                                                                    className={`max-w-[140px] px-3 py-1.5 rounded-lg text-sm font-medium border-0 focus:ring-2 focus:ring-blue-500 ${getStatusClass(
                                                                         status
                                                                     )}`}
                                                                 >
@@ -1801,7 +1778,7 @@ const Complaints = () => {
                                                                         Pending
                                                                     </option>
 
-                                                                    <option value="in progress">
+                                                                    <option value="in_progress">
                                                                         In Progress
                                                                     </option>
 
@@ -1818,12 +1795,14 @@ const Complaints = () => {
                                                             ) : (
 
                                                                 <span
-                                                                    className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize ${getStatusClass(
+                                                                    className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusClass(
                                                                         status
                                                                     )}`}
                                                                 >
                                                                     {
-                                                                        status
+                                                                        displayStatus(
+                                                                            status
+                                                                        )
                                                                     }
                                                                 </span>
 
@@ -1834,14 +1813,16 @@ const Complaints = () => {
 
                                                         {/* DATE */}
 
-                                                        <td className="px-4 xl:px-5 py-4">
+                                                        <td className="px-5 py-4">
 
                                                             <span className="text-sm text-gray-500 whitespace-nowrap">
-                                                                {formatDate(
-                                                                    getDate(
-                                                                        complaint
+                                                                {
+                                                                    formatDate(
+                                                                        getDate(
+                                                                            complaint
+                                                                        )
                                                                     )
-                                                                )}
+                                                                }
                                                             </span>
 
                                                         </td>
@@ -1861,25 +1842,26 @@ const Complaints = () => {
                         </div>
 
                     </>
+
                 )}
 
 
-                {/* ================================= */}
-                {/* PAGINATION */}
-                {/* ================================= */}
+                {/* =================================================
+                    PAGINATION
+                ================================================= */}
 
-                {!isMyComplaints &&
-                    complaints.length > 0 && (
+                {isAdmin &&
+                    total > 0 && (
 
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 mt-5 sm:mt-6">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-5 sm:mt-6">
 
                             <button
                                 type="button"
                                 disabled={
-                                    currentPage ===
-                                    1
+                                    currentPage === 1
                                 }
                                 onClick={() => {
+
                                     setCurrentPage(
                                         (prev) =>
                                             Math.max(
@@ -1887,24 +1869,38 @@ const Complaints = () => {
                                                 prev - 1
                                             )
                                     );
+
                                 }}
-                                className={`w-full sm:w-auto px-4 py-2 rounded-lg border text-sm sm:text-base transition ${currentPage ===
-                                        1
+                                className={`w-full sm:w-auto px-4 py-2 rounded-lg border text-sm transition ${
+                                    currentPage === 1
                                         ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                                         : "bg-white text-gray-700 hover:bg-gray-50"
-                                    }`}
+                                }`}
                             >
                                 ← Previous
                             </button>
 
 
-                            <span className="text-xs sm:text-sm text-gray-600 order-first sm:order-none">
+                            <span className="text-sm text-gray-600 order-first sm:order-none">
+
                                 Page{" "}
+
                                 <span className="font-semibold">
-                                    {
-                                        currentPage
-                                    }
+                                    {currentPage}
                                 </span>
+
+                                {" "}of{" "}
+
+                                <span className="font-semibold">
+                                    {Math.max(
+                                        1,
+                                        Math.ceil(
+                                            total /
+                                            pageSize
+                                        )
+                                    )}
+                                </span>
+
                             </span>
 
 
@@ -1914,16 +1910,18 @@ const Complaints = () => {
                                     !hasNextPage
                                 }
                                 onClick={() => {
+
                                     setCurrentPage(
                                         (prev) =>
-                                            prev +
-                                            1
+                                            prev + 1
                                     );
+
                                 }}
-                                className={`w-full sm:w-auto px-4 py-2 rounded-lg border text-sm sm:text-base transition ${!hasNextPage
+                                className={`w-full sm:w-auto px-4 py-2 rounded-lg border text-sm transition ${
+                                    !hasNextPage
                                         ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                                         : "bg-white text-gray-700 hover:bg-gray-50"
-                                    }`}
+                                }`}
                             >
                                 Next →
                             </button>
@@ -1937,5 +1935,6 @@ const Complaints = () => {
         </div>
     );
 };
+
 
 export default Complaints;
