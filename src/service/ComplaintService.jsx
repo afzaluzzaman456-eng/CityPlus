@@ -10,29 +10,70 @@ function getToken() {
     return localStorage.getItem("token");
 }
 
+
+// ========================================
+// USER
+// ========================================
+
+function getCurrentUser() {
+    try {
+        return JSON.parse(
+            localStorage.getItem("user") || "{}"
+        );
+    } catch {
+        return {};
+    }
+}
+
+
+// ========================================
+// CHECK ADMIN
+// ========================================
+
+function isAdmin() {
+    const user = getCurrentUser();
+
+    return (
+        String(user?.role || "")
+            .trim()
+            .toLowerCase() === "admin"
+    );
+}
+
+
 // ========================================
 // HEADERS
 // ========================================
 
-function getHeaders() {
+function getHeaders(includeJson = false) {
     const token = getToken();
 
     const headers = {
         Accept: "application/json",
     };
 
+    if (includeJson) {
+        headers["Content-Type"] =
+            "application/json";
+    }
+
     if (token) {
-        headers.Authorization = `Bearer ${token}`;
+        headers.Authorization =
+            `Bearer ${token}`;
     }
 
     return headers;
 }
 
+
 // ========================================
 // ERROR MESSAGE
 // ========================================
 
-function getErrorMessage(data, defaultMessage) {
+function getErrorMessage(
+    data,
+    defaultMessage
+) {
     if (!data) {
         return defaultMessage;
     }
@@ -75,6 +116,7 @@ function getErrorMessage(data, defaultMessage) {
     return String(data.detail);
 }
 
+
 // ========================================
 // RESPONSE HANDLER
 // ========================================
@@ -84,18 +126,46 @@ async function parseResponse(
     defaultMessage
 ) {
     const contentType =
-        response.headers.get("content-type") || "";
+        response.headers.get(
+            "content-type"
+        ) || "";
 
-    const text = await response.text();
+    const text =
+        await response.text();
 
-    console.log("================================");
-    console.log("API URL:", response.url);
-    console.log("STATUS:", response.status);
-    console.log("CONTENT TYPE:", contentType);
-    console.log("SERVER RESPONSE:", text);
-    console.log("================================");
+    console.log(
+        "================================"
+    );
 
+    console.log(
+        "API URL:",
+        response.url
+    );
+
+    console.log(
+        "STATUS:",
+        response.status
+    );
+
+    console.log(
+        "CONTENT TYPE:",
+        contentType
+    );
+
+    console.log(
+        "SERVER RESPONSE:",
+        text
+    );
+
+    console.log(
+        "================================"
+    );
+
+
+    // ----------------------------------------
     // Empty response
+    // ----------------------------------------
+
     if (!text.trim()) {
         if (!response.ok) {
             throw new Error(
@@ -106,9 +176,13 @@ async function parseResponse(
         return null;
     }
 
+
+    // ----------------------------------------
+    // Parse JSON
+    // ----------------------------------------
+
     let data;
 
-    // Try JSON manually
     try {
         data = JSON.parse(text);
     } catch (error) {
@@ -117,7 +191,6 @@ async function parseResponse(
             error
         );
 
-        // HTML response
         if (
             text
                 .trim()
@@ -138,7 +211,11 @@ async function parseResponse(
         );
     }
 
-    // HTTP error
+
+    // ----------------------------------------
+    // HTTP Error
+    // ----------------------------------------
+
     if (!response.ok) {
         throw new Error(
             getErrorMessage(
@@ -151,11 +228,21 @@ async function parseResponse(
     return data;
 }
 
-// ========================================
+
+// =========================================================
 // GET ALL COMPLAINTS
-// ========================================
+// ADMIN ONLY
+// =========================================================
 
 export async function getAllComplaints() {
+
+    // Frontend protection
+    if (!isAdmin()) {
+        throw new Error(
+            "Admin access required"
+        );
+    }
+
     const response = await fetch(
         `${API_URL}/complaints/all`,
         {
@@ -166,13 +253,20 @@ export async function getAllComplaints() {
 
     return parseResponse(
         response,
-        "Failed to load complaints"
+        "Failed to load all complaints"
     );
 }
 
-// ========================================
+
+// =========================================================
 // GET COMPLAINTS
-// ========================================
+//
+// ADMIN  -> ALL COMPLAINTS
+// USER   -> OWN COMPLAINTS
+//
+// NOTE:
+// Backend also enforces this.
+// =========================================================
 
 export async function getComplaints({
     search = "",
@@ -186,7 +280,14 @@ export async function getComplaints({
     page = 1,
     pageSize = 5,
 } = {}) {
-    const params = new URLSearchParams();
+
+    const params =
+        new URLSearchParams();
+
+
+    // ----------------------------------------
+    // Search
+    // ----------------------------------------
 
     if (search) {
         params.append(
@@ -195,12 +296,22 @@ export async function getComplaints({
         );
     }
 
+
+    // ----------------------------------------
+    // Category
+    // ----------------------------------------
+
     if (category) {
         params.append(
             "category",
             category
         );
     }
+
+
+    // ----------------------------------------
+    // Status
+    // ----------------------------------------
 
     if (status) {
         params.append(
@@ -209,12 +320,22 @@ export async function getComplaints({
         );
     }
 
+
+    // ----------------------------------------
+    // Priority
+    // ----------------------------------------
+
     if (priority) {
         params.append(
             "priority",
             priority
         );
     }
+
+
+    // ----------------------------------------
+    // Start Date
+    // ----------------------------------------
 
     if (startDate) {
         params.append(
@@ -223,12 +344,22 @@ export async function getComplaints({
         );
     }
 
+
+    // ----------------------------------------
+    // End Date
+    // ----------------------------------------
+
     if (endDate) {
         params.append(
             "end_date",
             endDate
         );
     }
+
+
+    // ----------------------------------------
+    // Sorting
+    // ----------------------------------------
 
     params.append(
         "sort_by",
@@ -240,6 +371,11 @@ export async function getComplaints({
         order
     );
 
+
+    // ----------------------------------------
+    // Pagination
+    // ----------------------------------------
+
     params.append(
         "page",
         page
@@ -250,8 +386,15 @@ export async function getComplaints({
         pageSize
     );
 
+
+    const queryString =
+        params.toString();
+
     const url =
-        `${API_URL}/complaints?${params.toString()}`;
+        queryString
+            ? `${API_URL}/complaints?${queryString}`
+            : `${API_URL}/complaints`;
+
 
     console.log(
         "COMPLAINT API URL:",
@@ -262,6 +405,7 @@ export async function getComplaints({
         "COMPLAINT TOKEN:",
         getToken()
     );
+
 
     const response = await fetch(
         url,
@@ -277,13 +421,24 @@ export async function getComplaints({
     );
 }
 
-// ========================================
+
+// =========================================================
 // GET SINGLE COMPLAINT
-// ========================================
+//
+// ADMIN  -> ANY COMPLAINT
+// USER   -> ONLY OWN COMPLAINT
+// =========================================================
 
 export async function getComplaintById(
     complaintId
 ) {
+
+    if (!complaintId) {
+        throw new Error(
+            "Complaint ID is required"
+        );
+    }
+
     const response = await fetch(
         `${API_URL}/complaints/${complaintId}`,
         {
@@ -298,11 +453,14 @@ export async function getComplaintById(
     );
 }
 
-// ========================================
+
+// =========================================================
 // GET MY COMPLAINTS
-// ========================================
+// NORMAL USER
+// =========================================================
 
 export async function getMyComplaints() {
+
     const response = await fetch(
         `${API_URL}/complaints/my`,
         {
@@ -317,40 +475,54 @@ export async function getMyComplaints() {
     );
 }
 
-// ========================================
+
+// =========================================================
 // CREATE COMPLAINT
-// ========================================
+// AUTHENTICATED USER
+// =========================================================
 
 export async function createComplaint(
     complaintData
 ) {
-    const params = new URLSearchParams();
 
-    params.append(
-        "title",
-        complaintData.title || ""
+    if (!complaintData) {
+        throw new Error(
+            "Complaint data is required"
+        );
+    }
+
+
+    const body = {
+        title:
+            complaintData.title || "",
+
+        description:
+            complaintData.description || "",
+
+        category:
+            complaintData.category || "",
+
+        location:
+            complaintData.location || "",
+
+        priority:
+            complaintData.priority ||
+            "medium",
+    };
+
+
+    console.log(
+        "CREATE COMPLAINT DATA:",
+        body
     );
 
-    params.append(
-        "description",
-        complaintData.description || ""
-    );
-
-    params.append(
-        "category",
-        complaintData.category || ""
-    );
-
-    params.append(
-        "location",
-        complaintData.location || ""
-    );
 
     const response = await fetch(
-        `${API_URL}/complaints?${params.toString()}`,
+        `${API_URL}/complaints`,
         {
             method: "POST",
-            headers: getHeaders(),
+            headers: getHeaders(true),
+            body: JSON.stringify(body),
         }
     );
 
@@ -360,41 +532,74 @@ export async function createComplaint(
     );
 }
 
-// ========================================
+
+// =========================================================
 // UPDATE COMPLAINT
-// ========================================
+//
+// IMPORTANT:
+// Current backend allows complaint update
+// only through ADMIN endpoint.
+//
+// Therefore this function is ADMIN ONLY.
+// =========================================================
 
 export async function updateComplaint(
     complaintId,
     complaintData
 ) {
-    const params = new URLSearchParams();
 
-    params.append(
-        "title",
-        complaintData.title || ""
+    if (!isAdmin()) {
+        throw new Error(
+            "Admin access required"
+        );
+    }
+
+    if (!complaintId) {
+        throw new Error(
+            "Complaint ID is required"
+        );
+    }
+
+
+    const body = {
+        title:
+            complaintData.title,
+
+        description:
+            complaintData.description,
+
+        category:
+            complaintData.category,
+
+        location:
+            complaintData.location,
+
+        priority:
+            complaintData.priority,
+
+        status:
+            complaintData.status,
+    };
+
+
+    // Remove undefined fields
+    Object.keys(body).forEach(
+        (key) => {
+            if (
+                body[key] === undefined
+            ) {
+                delete body[key];
+            }
+        }
     );
 
-    params.append(
-        "description",
-        complaintData.description || ""
-    );
-
-    params.append(
-        "category",
-        complaintData.category || ""
-    );
-
-    params.append(
-        "location",
-        complaintData.location || ""
-    );
 
     const response = await fetch(
-        `${API_URL}/complaints/${complaintId}?${params.toString()}`,
+        `${API_URL}/admin/update_complaint/${complaintId}`,
         {
             method: "PUT",
-            headers: getHeaders(),
+            headers: getHeaders(true),
+            body: JSON.stringify(body),
         }
     );
 
@@ -404,23 +609,34 @@ export async function updateComplaint(
     );
 }
 
-// ========================================
+
+// =========================================================
 // ADMIN UPDATE COMPLAINT
-// ========================================
+// =========================================================
 
 export async function updateAdminComplaint(
     complaintId,
     complaintData
 ) {
+
+    if (!isAdmin()) {
+        throw new Error(
+            "Admin access required"
+        );
+    }
+
+    if (!complaintId) {
+        throw new Error(
+            "Complaint ID is required"
+        );
+    }
+
+
     const response = await fetch(
         `${API_URL}/admin/update_complaint/${complaintId}`,
         {
             method: "PUT",
-            headers: {
-                ...getHeaders(),
-                "Content-Type":
-                    "application/json",
-            },
+            headers: getHeaders(true),
             body: JSON.stringify(
                 complaintData
             ),
@@ -433,25 +649,57 @@ export async function updateAdminComplaint(
     );
 }
 
-// ========================================
-// UPDATE PRIORITY
-// ========================================
+
+// =========================================================
+// UPDATE COMPLAINT PRIORITY
+// ADMIN ONLY
+// =========================================================
 
 export async function updateComplaintPriority(
     complaintId,
     priority
 ) {
+
+    if (!isAdmin()) {
+        throw new Error(
+            "Admin access required"
+        );
+    }
+
+    if (!complaintId) {
+        throw new Error(
+            "Complaint ID is required"
+        );
+    }
+
+
+    if (
+        ![
+            "low",
+            "medium",
+            "high",
+        ].includes(
+            String(priority)
+                .trim()
+                .toLowerCase()
+        )
+    ) {
+        throw new Error(
+            "Invalid priority"
+        );
+    }
+
+
     const response = await fetch(
         `${API_URL}/admin/update_complaint/${complaintId}`,
         {
             method: "PUT",
-            headers: {
-                ...getHeaders(),
-                "Content-Type":
-                    "application/json",
-            },
+            headers: getHeaders(true),
             body: JSON.stringify({
-                priority: priority,
+                priority:
+                    String(priority)
+                        .trim()
+                        .toLowerCase(),
             }),
         }
     );
@@ -462,15 +710,31 @@ export async function updateComplaintPriority(
     );
 }
 
-// ========================================
+
+// =========================================================
 // DELETE COMPLAINT
-// ========================================
+// ADMIN ONLY
+// =========================================================
 
 export async function deleteComplaint(
     complaintId
 ) {
+
+    if (!isAdmin()) {
+        throw new Error(
+            "Admin access required"
+        );
+    }
+
+    if (!complaintId) {
+        throw new Error(
+            "Complaint ID is required"
+        );
+    }
+
+
     const response = await fetch(
-        `${API_URL}/complaints/${complaintId}`,
+        `${API_URL}/admin/delete_complaint/${complaintId}`,
         {
             method: "DELETE",
             headers: getHeaders(),
@@ -483,20 +747,63 @@ export async function deleteComplaint(
     );
 }
 
-// ========================================
-// UPDATE STATUS
-// ========================================
+
+// =========================================================
+// UPDATE COMPLAINT STATUS
+// ADMIN ONLY
+// =========================================================
 
 export async function updateComplaintStatus(
     complaintId,
     status
 ) {
-    const params = new URLSearchParams();
+
+    if (!isAdmin()) {
+        throw new Error(
+            "Admin access required"
+        );
+    }
+
+    if (!complaintId) {
+        throw new Error(
+            "Complaint ID is required"
+        );
+    }
+
+
+    const allowedStatuses = [
+        "pending",
+        "in_progress",
+        "resolved",
+        "rejected",
+    ];
+
+
+    const normalizedStatus =
+        String(status)
+            .trim()
+            .toLowerCase();
+
+
+    if (
+        !allowedStatuses.includes(
+            normalizedStatus
+        )
+    ) {
+        throw new Error(
+            "Invalid complaint status"
+        );
+    }
+
+
+    const params =
+        new URLSearchParams();
 
     params.append(
         "status",
-        status
+        normalizedStatus
     );
+
 
     const response = await fetch(
         `${API_URL}/admin/complaint/status/${complaintId}?${params.toString()}`,
