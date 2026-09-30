@@ -11,16 +11,16 @@ from passlib.context import CryptContext
 router = APIRouter()
 
 
-# =========================
+# =========================================================
 # PASSWORD HASHING
-# =========================
+# =========================================================
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-# =========================
+# =========================================================
 # DATABASE
-# =========================
+# =========================================================
 
 
 def get_db():
@@ -92,6 +92,7 @@ def user_response(user_model):
 
 # =========================================================
 # GET ALL USERS
+# ADMIN ONLY
 # =========================================================
 
 
@@ -109,6 +110,7 @@ def get_all_users(user: user_dependency, db: db_dependency):
 
 # =========================================================
 # GET SINGLE USER
+# ADMIN ONLY
 # =========================================================
 
 
@@ -135,7 +137,9 @@ def create_user_by_admin(
 ):
     check_admin(user)
 
-    if user_data.role not in ["admin", "user"]:
+    role = user_data.role.strip().lower()
+
+    if role not in ["admin", "user"]:
         raise HTTPException(status_code=400, detail="Role must be either admin or user")
 
     existing_username = (
@@ -158,7 +162,7 @@ def create_user_by_admin(
         firstname=user_data.firstname,
         lastname=user_data.lastname,
         password=hashed_password,
-        role=user_data.role,
+        role=role,
     )
 
     db.add(new_user)
@@ -170,6 +174,7 @@ def create_user_by_admin(
 
 # =========================================================
 # UPDATE USER
+# ADMIN ONLY
 # =========================================================
 
 
@@ -186,6 +191,10 @@ def update_user(
 
     update_data = user_data.model_dump(exclude_unset=True)
 
+    # -------------------------
+    # Username check
+    # -------------------------
+
     if "username" in update_data:
         existing_username = (
             db.query(users)
@@ -195,6 +204,10 @@ def update_user(
 
         if existing_username:
             raise HTTPException(status_code=400, detail="Username already exists")
+
+    # -------------------------
+    # Email check
+    # -------------------------
 
     if "email" in update_data:
         existing_email = (
@@ -206,14 +219,30 @@ def update_user(
         if existing_email:
             raise HTTPException(status_code=400, detail="Email already exists")
 
+    # -------------------------
+    # Role validation
+    # -------------------------
+
     if "role" in update_data:
-        if update_data["role"] not in ["admin", "user"]:
+        role = str(update_data["role"]).strip().lower()
+
+        if role not in ["admin", "user"]:
             raise HTTPException(
                 status_code=400, detail="Role must be either admin or user"
             )
 
+        update_data["role"] = role
+
+    # -------------------------
+    # Password hashing
+    # -------------------------
+
     if "password" in update_data:
         update_data["password"] = pwd_context.hash(update_data["password"])
+
+    # -------------------------
+    # Update fields
+    # -------------------------
 
     for key, value in update_data.items():
         setattr(user_model, key, value)
@@ -226,6 +255,7 @@ def update_user(
 
 # =========================================================
 # DELETE USER
+# ADMIN ONLY
 # =========================================================
 
 
@@ -233,6 +263,7 @@ def update_user(
 def delete_user(user_id: int, user: user_dependency, db: db_dependency):
     check_admin(user)
 
+    # Admin cannot delete himself
     if user.get("id") == user_id:
         raise HTTPException(status_code=400, detail="Admin cannot delete himself")
 
@@ -241,10 +272,12 @@ def delete_user(user_id: int, user: user_dependency, db: db_dependency):
     if user_model is None:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Delete user's complaints
     db.query(Complaints).filter(Complaints.user_id == user_id).delete(
         synchronize_session=False
     )
 
+    # Delete user's service requests
     db.query(ServiceRequests).filter(ServiceRequests.user_id == user_id).delete(
         synchronize_session=False
     )
@@ -299,33 +332,212 @@ class ServiceUpdate(BaseModel):
 
 # =========================================================
 # CREATE COMPLAINT
+# AUTHENTICATED USERS
 # =========================================================
 
 
-@router.post("/admin/create_complaint")
+@router.post("/complaints", status_code=201)
 def create_complaint(
     user: user_dependency, db: db_dependency, new_complaint: ComplaintCreate
 ):
-    check_admin(user)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Failed Authentication")
 
-    if new_complaint.priority not in ["low", "medium", "high"]:
+    # -------------------------
+    # Validate priority
+    # -------------------------
+
+    priority = new_complaint.priority.strip().lower()
+
+    if priority not in ["low", "medium", "high"]:
         raise HTTPException(status_code=400, detail="Invalid priority")
 
+    user_id = user.get("id")
+
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="User ID not found")
+
     complaint_model = Complaints(
-        **new_complaint.model_dump(), user_id=user.get("id"), status="pending"
+        title=new_complaint.title,
+        description=new_complaint.description,
+        category=new_complaint.category,
+        location=new_complaint.location,
+        priority=priority,
+        user_id=user_id,
+        status="pending",
     )
 
     db.add(complaint_model)
     db.commit()
     db.refresh(complaint_model)
 
-    return JSONResponse(
-        status_code=201, content={"message": "Complaint created successfully"}
+    return {
+        "message": "Complaint created successfully",
+        "complaint": {
+            "id": complaint_model.id,
+            "title": complaint_model.title,
+            "description": complaint_model.description,
+            "category": complaint_model.category,
+            "location": complaint_model.location,
+            "priority": complaint_model.priority,
+            "status": complaint_model.status,
+            "user_id": complaint_model.user_id,
+        },
+    }
+
+
+# =========================================================
+# GET MY COMPLAINTS
+# NORMAL USER = ONLY OWN COMPLAINTS
+# ADMIN = ALSO ALLOWED
+# =========================================================
+
+
+@router.get("/complaints/my")
+def get_my_complaints(user: user_dependency, db: db_dependency):
+    if user is None:
+        raise HTTPException(status_code=401, detail="Failed Authentication")
+
+    user_id = user.get("id")
+
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="User ID not found")
+
+    complaints = (
+        db.query(Complaints)
+        .filter(Complaints.user_id == user_id)
+        .order_by(Complaints.id.desc())
+        .all()
+    )
+
+    return complaints
+
+
+# =========================================================
+# GET ALL COMPLAINTS
+# ADMIN ONLY
+# =========================================================
+
+
+@router.get("/complaints/all")
+def get_all_complaints(user: user_dependency, db: db_dependency):
+    # Only admin can access this endpoint
+    check_admin(user)
+
+    complaints = db.query(Complaints).order_by(Complaints.id.desc()).all()
+
+    return complaints
+
+
+# =========================================================
+# GET COMPLAINTS
+#
+# ADMIN  -> ALL COMPLAINTS
+# USER   -> ONLY OWN COMPLAINTS
+# =========================================================
+
+
+@router.get("/complaints")
+def get_complaints(user: user_dependency, db: db_dependency):
+    if user is None:
+        raise HTTPException(status_code=401, detail="Failed Authentication")
+
+    role = str(user.get("role", "")).strip().lower()
+
+    # -------------------------
+    # ADMIN
+    # -------------------------
+
+    if role == "admin":
+        return db.query(Complaints).order_by(Complaints.id.desc()).all()
+
+    # -------------------------
+    # NORMAL USER
+    # -------------------------
+
+    user_id = user.get("id")
+
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="User ID not found")
+
+    return (
+        db.query(Complaints)
+        .filter(Complaints.user_id == user_id)
+        .order_by(Complaints.id.desc())
+        .all()
     )
 
 
 # =========================================================
+# GET SINGLE COMPLAINT
+#
+# ADMIN  -> ANY COMPLAINT
+# USER   -> ONLY OWN COMPLAINT
+# =========================================================
+
+
+@router.get("/complaints/{complaint_id}")
+def get_single_complaint(complaint_id: int, user: user_dependency, db: db_dependency):
+    if user is None:
+        raise HTTPException(status_code=401, detail="Failed Authentication")
+
+    complaint = db.query(Complaints).filter(Complaints.id == complaint_id).first()
+
+    if complaint is None:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+
+    role = str(user.get("role", "")).strip().lower()
+
+    # Admin can view any complaint
+    if role == "admin":
+        return complaint
+
+    # User can view only own complaint
+    if complaint.user_id != user.get("id"):
+        raise HTTPException(
+            status_code=403, detail="You are not authorized to view this complaint"
+        )
+
+    return complaint
+
+
+# =========================================================
+# ADMIN CREATE COMPLAINT
+# OPTIONAL ADMIN ENDPOINT
+# =========================================================
+
+
+@router.post("/admin/create_complaint", status_code=201)
+def create_complaint_by_admin(
+    user: user_dependency, db: db_dependency, new_complaint: ComplaintCreate
+):
+    check_admin(user)
+
+    priority = new_complaint.priority.strip().lower()
+
+    if priority not in ["low", "medium", "high"]:
+        raise HTTPException(status_code=400, detail="Invalid priority")
+
+    complaint_model = Complaints(
+        title=new_complaint.title,
+        description=new_complaint.description,
+        category=new_complaint.category,
+        location=new_complaint.location,
+        priority=priority,
+        user_id=user.get("id"),
+        status="pending",
+    )
+
+    db.add(complaint_model)
+    db.commit()
+    db.refresh(complaint_model)
+
+    return {"message": "Complaint created successfully"}
+
+
+# =========================================================
 # UPDATE COMPLAINT
+# ADMIN ONLY
 # =========================================================
 
 
@@ -345,18 +557,37 @@ def update_complaint(
 
     update_data = update_complaint.model_dump(exclude_unset=True)
 
+    # -------------------------
+    # Validate priority
+    # -------------------------
+
     if "priority" in update_data:
-        if update_data["priority"] not in ["low", "medium", "high"]:
-            raise HTTPException(status_code=400, detail="Invalid priority")
+
+        if update_data["priority"] is not None:
+            priority = update_data["priority"].strip().lower()
+
+            if priority not in ["low", "medium", "high"]:
+                raise HTTPException(status_code=400, detail="Invalid priority")
+
+            update_data["priority"] = priority
+
+    # -------------------------
+    # Validate status
+    # -------------------------
 
     if "status" in update_data:
-        if update_data["status"] not in [
-            "pending",
-            "in_progress",
-            "resolved",
-            "rejected",
-        ]:
-            raise HTTPException(status_code=400, detail="Invalid status")
+
+        if update_data["status"] is not None:
+            status = update_data["status"].strip().lower()
+
+            if status not in ["pending", "in_progress", "resolved", "rejected"]:
+                raise HTTPException(status_code=400, detail="Invalid status")
+
+            update_data["status"] = status
+
+    # -------------------------
+    # Update
+    # -------------------------
 
     for key, value in update_data.items():
         setattr(complaint, key, value)
@@ -364,13 +595,12 @@ def update_complaint(
     db.commit()
     db.refresh(complaint)
 
-    return JSONResponse(
-        status_code=200, content={"message": "Complaint updated successfully"}
-    )
+    return {"message": "Complaint updated successfully"}
 
 
 # =========================================================
 # DELETE COMPLAINT
+# ADMIN ONLY
 # =========================================================
 
 
@@ -389,13 +619,12 @@ def delete_complaint(user: user_dependency, db: db_dependency, complaint_id: int
 
     db.commit()
 
-    return JSONResponse(
-        status_code=200, content={"message": "Complaint deleted successfully"}
-    )
+    return {"message": "Complaint deleted successfully"}
 
 
 # =========================================================
 # UPDATE COMPLAINT STATUS
+# ADMIN ONLY
 # =========================================================
 
 
@@ -407,8 +636,13 @@ def update_complaint_status(
 
     status = status.strip().lower()
 
-    if status not in ["pending", "in_progress", "resolved", "rejected"]:
-        raise HTTPException(status_code=400, detail="Invalid status")
+    allowed_statuses = ["pending", "in_progress", "resolved", "rejected"]
+
+    if status not in allowed_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status. Allowed values: {allowed_statuses}",
+        )
 
     complaint = db.query(Complaints).filter(Complaints.id == complaint_id).first()
 
@@ -420,13 +654,16 @@ def update_complaint_status(
     db.commit()
     db.refresh(complaint)
 
-    return JSONResponse(
-        status_code=200, content={"message": "Complaint status updated successfully"}
-    )
+    return {
+        "message": "Complaint status updated successfully",
+        "complaint_id": complaint.id,
+        "status": complaint.status,
+    }
 
 
 # =========================================================
 # CREATE SERVICE REQUEST
+# ADMIN ONLY
 # =========================================================
 
 
@@ -437,7 +674,12 @@ def create_service(
     check_admin(user)
 
     service_model = ServiceRequests(
-        **new_service.model_dump(), user_id=user.get("id"), status="pending"
+        title=new_service.title,
+        description=new_service.description,
+        category=new_service.category,
+        location=new_service.location,
+        user_id=user.get("id"),
+        status="pending",
     )
 
     db.add(service_model)
@@ -451,6 +693,7 @@ def create_service(
 
 # =========================================================
 # UPDATE SERVICE REQUEST
+# ADMIN ONLY
 # =========================================================
 
 
@@ -471,15 +714,18 @@ def update_service(
     update_data = update_service.model_dump(exclude_unset=True)
 
     if "status" in update_data:
-        update_data["status"] = update_data["status"].strip().lower()
 
-        if update_data["status"] not in [
-            "pending",
-            "in_progress",
-            "resolved",
-            "rejected",
-        ]:
-            raise HTTPException(status_code=400, detail="Invalid status")
+        if update_data["status"] is not None:
+
+            update_data["status"] = update_data["status"].strip().lower()
+
+            if update_data["status"] not in [
+                "pending",
+                "in_progress",
+                "resolved",
+                "rejected",
+            ]:
+                raise HTTPException(status_code=400, detail="Invalid status")
 
     for key, value in update_data.items():
         setattr(service, key, value)
@@ -494,6 +740,7 @@ def update_service(
 
 # =========================================================
 # DELETE SERVICE REQUEST
+# ADMIN ONLY
 # =========================================================
 
 
@@ -519,6 +766,7 @@ def delete_service(user: user_dependency, db: db_dependency, service_id: int):
 
 # =========================================================
 # UPDATE SERVICE STATUS
+# ADMIN ONLY
 # =========================================================
 
 
@@ -526,13 +774,10 @@ def delete_service(user: user_dependency, db: db_dependency, service_id: int):
 def update_service_status(
     user: user_dependency, db: db_dependency, service_id: int, status: str
 ):
-    # Check admin
     check_admin(user)
 
-    # Normalize status
     status = status.strip().lower()
 
-    # Allowed statuses
     allowed_statuses = ["pending", "in_progress", "resolved", "rejected"]
 
     if status not in allowed_statuses:
@@ -541,13 +786,11 @@ def update_service_status(
             detail=f"Invalid status. Allowed values: {allowed_statuses}",
         )
 
-    # Find service
     service = db.query(ServiceRequests).filter(ServiceRequests.id == service_id).first()
 
     if service is None:
         raise HTTPException(status_code=404, detail="Service request not found")
 
-    # Update status
     service.status = status
 
     db.commit()
