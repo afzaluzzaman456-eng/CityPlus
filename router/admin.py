@@ -24,12 +24,10 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def get_db():
-
     db = SessionLocal()
 
     try:
         yield db
-
     finally:
         db.close()
 
@@ -39,12 +37,26 @@ user_dependency = Annotated[dict, Depends(get_current_user)]
 
 
 # =========================================================
+# ADMIN CHECK HELPER
+# =========================================================
+
+
+def check_admin(user):
+    if user is None:
+        raise HTTPException(status_code=401, detail="Failed Authentication")
+
+    role = str(user.get("role", "")).strip().lower()
+
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+
+# =========================================================
 # USER SCHEMAS
 # =========================================================
 
 
 class AdminUserCreate(BaseModel):
-
     email: EmailStr
     username: str = Field(min_length=3)
     firstname: str = Field(min_length=1)
@@ -54,7 +66,6 @@ class AdminUserCreate(BaseModel):
 
 
 class AdminUserUpdate(BaseModel):
-
     email: Optional[EmailStr] = None
     username: Optional[str] = Field(default=None, min_length=3)
     firstname: Optional[str] = Field(default=None, min_length=1)
@@ -69,7 +80,6 @@ class AdminUserUpdate(BaseModel):
 
 
 def user_response(user_model):
-
     return {
         "id": user_model.id,
         "email": user_model.email,
@@ -87,10 +97,7 @@ def user_response(user_model):
 
 @router.get("/admin/users")
 def get_all_users(user: user_dependency, db: db_dependency):
-
-    if user is None or user.get("role") != "admin":
-
-        raise HTTPException(status_code=403, detail="Admin access required")
+    check_admin(user)
 
     users_list = db.query(users).all()
 
@@ -107,15 +114,11 @@ def get_all_users(user: user_dependency, db: db_dependency):
 
 @router.get("/admin/users/{user_id}")
 def get_single_user(user_id: int, user: user_dependency, db: db_dependency):
-
-    if user is None or user.get("role") != "admin":
-
-        raise HTTPException(status_code=403, detail="Admin access required")
+    check_admin(user)
 
     user_model = db.query(users).filter(users.id == user_id).first()
 
     if user_model is None:
-
         raise HTTPException(status_code=404, detail="User not found")
 
     return user_response(user_model)
@@ -130,37 +133,25 @@ def get_single_user(user_id: int, user: user_dependency, db: db_dependency):
 def create_user_by_admin(
     user_data: AdminUserCreate, user: user_dependency, db: db_dependency
 ):
+    check_admin(user)
 
-    # Only admin can create user
-    if user is None or user.get("role") != "admin":
-
-        raise HTTPException(status_code=403, detail="Admin access required")
-
-    # Check role
     if user_data.role not in ["admin", "user"]:
-
         raise HTTPException(status_code=400, detail="Role must be either admin or user")
 
-    # Check username
     existing_username = (
         db.query(users).filter(users.username == user_data.username).first()
     )
 
     if existing_username:
-
         raise HTTPException(status_code=400, detail="Username already exists")
 
-    # Check email
     existing_email = db.query(users).filter(users.email == user_data.email).first()
 
     if existing_email:
-
         raise HTTPException(status_code=400, detail="Email already exists")
 
-    # Hash password
     hashed_password = pwd_context.hash(user_data.password)
 
-    # Create user
     new_user = users(
         email=user_data.email,
         username=user_data.username,
@@ -171,9 +162,7 @@ def create_user_by_admin(
     )
 
     db.add(new_user)
-
     db.commit()
-
     db.refresh(new_user)
 
     return {"message": "User created successfully", "user": user_response(new_user)}
@@ -188,25 +177,16 @@ def create_user_by_admin(
 def update_user(
     user_id: int, user_data: AdminUserUpdate, user: user_dependency, db: db_dependency
 ):
+    check_admin(user)
 
-    # Only admin
-    if user is None or user.get("role") != "admin":
-
-        raise HTTPException(status_code=403, detail="Admin access required")
-
-    # Find user
     user_model = db.query(users).filter(users.id == user_id).first()
 
     if user_model is None:
-
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Get only sent fields
     update_data = user_data.model_dump(exclude_unset=True)
 
-    # Check username
     if "username" in update_data:
-
         existing_username = (
             db.query(users)
             .filter(users.username == update_data["username"], users.id != user_id)
@@ -214,12 +194,9 @@ def update_user(
         )
 
         if existing_username:
-
             raise HTTPException(status_code=400, detail="Username already exists")
 
-    # Check email
     if "email" in update_data:
-
         existing_email = (
             db.query(users)
             .filter(users.email == update_data["email"], users.id != user_id)
@@ -227,30 +204,21 @@ def update_user(
         )
 
         if existing_email:
-
             raise HTTPException(status_code=400, detail="Email already exists")
 
-    # Validate role
     if "role" in update_data:
-
         if update_data["role"] not in ["admin", "user"]:
-
             raise HTTPException(
                 status_code=400, detail="Role must be either admin or user"
             )
 
-    # Hash password if password is updated
     if "password" in update_data:
-
         update_data["password"] = pwd_context.hash(update_data["password"])
 
-    # Update fields
     for key, value in update_data.items():
-
         setattr(user_model, key, value)
 
     db.commit()
-
     db.refresh(user_model)
 
     return {"message": "User updated successfully", "user": user_response(user_model)}
@@ -263,37 +231,25 @@ def update_user(
 
 @router.delete("/admin/users/{user_id}")
 def delete_user(user_id: int, user: user_dependency, db: db_dependency):
+    check_admin(user)
 
-    # Only admin
-    if user is None or user.get("role") != "admin":
-
-        raise HTTPException(status_code=403, detail="Admin access required")
-
-    # Admin cannot delete himself
     if user.get("id") == user_id:
-
         raise HTTPException(status_code=400, detail="Admin cannot delete himself")
 
-    # Find user
     user_model = db.query(users).filter(users.id == user_id).first()
 
     if user_model is None:
-
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Delete user's complaints
     db.query(Complaints).filter(Complaints.user_id == user_id).delete(
         synchronize_session=False
     )
 
-    # Delete user's service requests
     db.query(ServiceRequests).filter(ServiceRequests.user_id == user_id).delete(
         synchronize_session=False
     )
 
-    # Delete user
     db.delete(user_model)
-
     db.commit()
 
     return {"message": "User deleted successfully"}
@@ -305,30 +261,19 @@ def delete_user(user_id: int, user: user_dependency, db: db_dependency):
 
 
 class ComplaintCreate(BaseModel):
-
     title: str = Field(min_length=1)
-
     description: str = Field(default="", max_length=500)
-
     category: str = Field(min_length=1)
-
     location: str = Field(min_length=1)
-
     priority: str = Field(default="medium")
 
 
 class ComplaintUpdate(BaseModel):
-
     title: Optional[str] = Field(default=None, min_length=1)
-
     description: Optional[str] = Field(default=None, max_length=500)
-
     category: Optional[str] = Field(default=None, min_length=1)
-
     location: Optional[str] = Field(default=None, min_length=1)
-
     priority: Optional[str] = Field(default=None)
-
     status: Optional[str] = Field(default=None)
 
 
@@ -338,26 +283,17 @@ class ComplaintUpdate(BaseModel):
 
 
 class ServiceCreate(BaseModel):
-
     title: str = Field(min_length=1)
-
     description: str = Field(default="", max_length=500)
-
     category: str = Field(min_length=1)
-
     location: str = Field(min_length=1)
 
 
 class ServiceUpdate(BaseModel):
-
     title: Optional[str] = Field(default=None, min_length=1)
-
     description: Optional[str] = Field(default=None, max_length=500)
-
     category: Optional[str] = Field(default=None, min_length=1)
-
     location: Optional[str] = Field(default=None, min_length=1)
-
     status: Optional[str] = Field(default=None)
 
 
@@ -370,13 +306,9 @@ class ServiceUpdate(BaseModel):
 def create_complaint(
     user: user_dependency, db: db_dependency, new_complaint: ComplaintCreate
 ):
-
-    if user is None or user.get("role") != "admin":
-
-        raise HTTPException(status_code=401, detail="Failed Authentication")
+    check_admin(user)
 
     if new_complaint.priority not in ["low", "medium", "high"]:
-
         raise HTTPException(status_code=400, detail="Invalid priority")
 
     complaint_model = Complaints(
@@ -384,9 +316,7 @@ def create_complaint(
     )
 
     db.add(complaint_model)
-
     db.commit()
-
     db.refresh(complaint_model)
 
     return JSONResponse(
@@ -406,42 +336,32 @@ def update_complaint(
     update_complaint: ComplaintUpdate,
     complaint_id: int,
 ):
-
-    if user is None or user.get("role") != "admin":
-
-        raise HTTPException(status_code=401, detail="Failed Authentication")
+    check_admin(user)
 
     complaint = db.query(Complaints).filter(Complaints.id == complaint_id).first()
 
     if complaint is None:
-
         raise HTTPException(status_code=404, detail="Complaint not found")
 
     update_data = update_complaint.model_dump(exclude_unset=True)
 
     if "priority" in update_data:
-
         if update_data["priority"] not in ["low", "medium", "high"]:
-
             raise HTTPException(status_code=400, detail="Invalid priority")
 
     if "status" in update_data:
-
         if update_data["status"] not in [
             "pending",
             "in_progress",
             "resolved",
             "rejected",
         ]:
-
             raise HTTPException(status_code=400, detail="Invalid status")
 
     for key, value in update_data.items():
-
         setattr(complaint, key, value)
 
     db.commit()
-
     db.refresh(complaint)
 
     return JSONResponse(
@@ -456,15 +376,11 @@ def update_complaint(
 
 @router.delete("/admin/delete_complaint/{complaint_id}")
 def delete_complaint(user: user_dependency, db: db_dependency, complaint_id: int):
-
-    if user is None or user.get("role") != "admin":
-
-        raise HTTPException(status_code=401, detail="Failed Authentication")
+    check_admin(user)
 
     complaint = db.query(Complaints).filter(Complaints.id == complaint_id).first()
 
     if complaint is None:
-
         raise HTTPException(status_code=404, detail="Complaint not found")
 
     db.query(Complaints).filter(Complaints.id == complaint_id).delete(
@@ -487,24 +403,22 @@ def delete_complaint(user: user_dependency, db: db_dependency, complaint_id: int
 def update_complaint_status(
     user: user_dependency, db: db_dependency, complaint_id: int, status: str
 ):
+    check_admin(user)
 
-    if user is None or user.get("role") != "admin":
-
-        raise HTTPException(status_code=401, detail="Failed Authentication")
+    status = status.strip().lower()
 
     if status not in ["pending", "in_progress", "resolved", "rejected"]:
-
         raise HTTPException(status_code=400, detail="Invalid status")
 
     complaint = db.query(Complaints).filter(Complaints.id == complaint_id).first()
 
     if complaint is None:
-
         raise HTTPException(status_code=404, detail="Complaint not found")
 
     complaint.status = status
 
     db.commit()
+    db.refresh(complaint)
 
     return JSONResponse(
         status_code=200, content={"message": "Complaint status updated successfully"}
@@ -520,19 +434,14 @@ def update_complaint_status(
 def create_service(
     user: user_dependency, db: db_dependency, new_service: ServiceCreate
 ):
-
-    if user is None or user.get("role") != "admin":
-
-        raise HTTPException(status_code=401, detail="Failed Authentication")
+    check_admin(user)
 
     service_model = ServiceRequests(
         **new_service.model_dump(), user_id=user.get("id"), status="pending"
     )
 
     db.add(service_model)
-
     db.commit()
-
     db.refresh(service_model)
 
     return JSONResponse(
@@ -552,20 +461,17 @@ def update_service(
     update_service: ServiceUpdate,
     service_id: int,
 ):
-
-    if user is None or user.get("role") != "admin":
-
-        raise HTTPException(status_code=401, detail="Failed Authentication")
+    check_admin(user)
 
     service = db.query(ServiceRequests).filter(ServiceRequests.id == service_id).first()
 
     if service is None:
-
         raise HTTPException(status_code=404, detail="Service request not found")
 
     update_data = update_service.model_dump(exclude_unset=True)
 
     if "status" in update_data:
+        update_data["status"] = update_data["status"].strip().lower()
 
         if update_data["status"] not in [
             "pending",
@@ -573,15 +479,12 @@ def update_service(
             "resolved",
             "rejected",
         ]:
-
             raise HTTPException(status_code=400, detail="Invalid status")
 
     for key, value in update_data.items():
-
         setattr(service, key, value)
 
     db.commit()
-
     db.refresh(service)
 
     return JSONResponse(
@@ -596,15 +499,11 @@ def update_service(
 
 @router.delete("/admin/delete_service/{service_id}")
 def delete_service(user: user_dependency, db: db_dependency, service_id: int):
-
-    if user is None or user.get("role") != "admin":
-
-        raise HTTPException(status_code=401, detail="Failed Authentication")
+    check_admin(user)
 
     service = db.query(ServiceRequests).filter(ServiceRequests.id == service_id).first()
 
     if service is None:
-
         raise HTTPException(status_code=404, detail="Service request not found")
 
     db.query(ServiceRequests).filter(ServiceRequests.id == service_id).delete(
@@ -627,26 +526,35 @@ def delete_service(user: user_dependency, db: db_dependency, service_id: int):
 def update_service_status(
     user: user_dependency, db: db_dependency, service_id: int, status: str
 ):
+    # Check admin
+    check_admin(user)
 
-    if user is None or user.get("role") != "admin":
+    # Normalize status
+    status = status.strip().lower()
 
-        raise HTTPException(status_code=401, detail="Failed Authentication")
+    # Allowed statuses
+    allowed_statuses = ["pending", "in_progress", "resolved", "rejected"]
 
-    if status not in ["pending", "in_progress", "resolved", "rejected"]:
+    if status not in allowed_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status. Allowed values: {allowed_statuses}",
+        )
 
-        raise HTTPException(status_code=400, detail="Invalid status")
-
+    # Find service
     service = db.query(ServiceRequests).filter(ServiceRequests.id == service_id).first()
 
     if service is None:
-
         raise HTTPException(status_code=404, detail="Service request not found")
 
+    # Update status
     service.status = status
 
     db.commit()
+    db.refresh(service)
 
-    return JSONResponse(
-        status_code=200,
-        content={"message": "Service request status updated successfully"},
-    )
+    return {
+        "message": "Service request status updated successfully",
+        "service_id": service.id,
+        "status": service.status,
+    }

@@ -15,9 +15,9 @@ from router.authentication import get_current_user
 app = FastAPI()
 
 
-# =========================
+# =========================================================
 # CORS
-# =========================
+# =========================================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,24 +28,24 @@ app.add_middleware(
 )
 
 
-# =========================
+# =========================================================
 # DATABASE
-# =========================
+# =========================================================
 
 models.Base.metadata.create_all(bind=engine)
 
 
-# =========================
+# =========================================================
 # ROUTERS
-# =========================
+# =========================================================
 
 app.include_router(authentication.router)
 app.include_router(admin.router)
 
 
-# =========================
+# =========================================================
 # DATABASE DEPENDENCY
-# =========================
+# =========================================================
 
 
 def get_db():
@@ -89,6 +89,7 @@ def get_complaints(
 
     # Search
     if search:
+
         search_filters = [
             Complaints.title.contains(search),
             Complaints.description.contains(search),
@@ -149,6 +150,11 @@ def get_complaints(
     return complaints
 
 
+# =========================================================
+# GET ALL COMPLAINTS
+# =========================================================
+
+
 @app.get("/complaints/all")
 def get_all_complaints(user: user_dependency, db: db_dependency):
 
@@ -158,6 +164,11 @@ def get_all_complaints(user: user_dependency, db: db_dependency):
     return db.query(Complaints).all()
 
 
+# =========================================================
+# GET MY COMPLAINTS
+# =========================================================
+
+
 @app.get("/complaints/my")
 def my_complaints(user: user_dependency, db: db_dependency):
 
@@ -165,6 +176,11 @@ def my_complaints(user: user_dependency, db: db_dependency):
         raise HTTPException(status_code=401, detail="Failed Authentication")
 
     return db.query(Complaints).filter(Complaints.user_id == user.get("id")).all()
+
+
+# =========================================================
+# GET SPECIFIC COMPLAINT
+# =========================================================
 
 
 @app.get("/complaints/{complaint_id}")
@@ -179,6 +195,11 @@ def get_specific_complaint(user: user_dependency, db: db_dependency, complaint_i
         raise HTTPException(status_code=404, detail="Complaint not found")
 
     return complaint
+
+
+# =========================================================
+# CREATE COMPLAINT
+# =========================================================
 
 
 @app.post("/complaints")
@@ -210,6 +231,11 @@ def create_complaint(
     return {"message": "Complaint submitted successfully"}
 
 
+# =========================================================
+# UPDATE COMPLAINT
+# =========================================================
+
+
 @app.put("/complaints/{complaint_id}")
 def update_complaint(
     user: user_dependency,
@@ -229,7 +255,9 @@ def update_complaint(
     if complaint is None:
         raise HTTPException(status_code=404, detail="Complaint not found")
 
-    if complaint.user_id != user.get("id") and user.get("role") != "admin":
+    role = str(user.get("role", "")).strip().lower()
+
+    if complaint.user_id != user.get("id") and role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     complaint.title = title
@@ -238,8 +266,14 @@ def update_complaint(
     complaint.location = location
 
     db.commit()
+    db.refresh(complaint)
 
     return {"message": "Complaint updated successfully"}
+
+
+# =========================================================
+# DELETE COMPLAINT
+# =========================================================
 
 
 @app.delete("/complaints/{complaint_id}")
@@ -253,7 +287,9 @@ def delete_complaint(user: user_dependency, db: db_dependency, complaint_id: int
     if complaint is None:
         raise HTTPException(status_code=404, detail="Complaint not found")
 
-    if complaint.user_id != user.get("id") and user.get("role") != "admin":
+    role = str(user.get("role", "")).strip().lower()
+
+    if complaint.user_id != user.get("id") and role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     db.delete(complaint)
@@ -289,6 +325,7 @@ def get_services(
 
     # Search
     if search:
+
         search_filters = [
             ServiceRequests.title.contains(search),
             ServiceRequests.description.contains(search),
@@ -338,6 +375,11 @@ def get_services(
     return services
 
 
+# =========================================================
+# GET ALL SERVICES
+# =========================================================
+
+
 @app.get("/services/all")
 def get_all_services(user: user_dependency, db: db_dependency):
 
@@ -345,6 +387,11 @@ def get_all_services(user: user_dependency, db: db_dependency):
         raise HTTPException(status_code=401, detail="Failed Authentication")
 
     return db.query(ServiceRequests).all()
+
+
+# =========================================================
+# GET MY SERVICES
+# =========================================================
 
 
 @app.get("/services/my")
@@ -360,6 +407,11 @@ def my_services(user: user_dependency, db: db_dependency):
     )
 
 
+# =========================================================
+# GET SPECIFIC SERVICE
+# =========================================================
+
+
 @app.get("/services/{service_id}")
 def get_specific_service(user: user_dependency, db: db_dependency, service_id: int):
 
@@ -372,6 +424,11 @@ def get_specific_service(user: user_dependency, db: db_dependency, service_id: i
         raise HTTPException(status_code=404, detail="Service request not found")
 
     return service
+
+
+# =========================================================
+# CREATE SERVICE
+# =========================================================
 
 
 @app.post("/services")
@@ -403,6 +460,11 @@ def create_service(
     return {"message": "Service request submitted successfully"}
 
 
+# =========================================================
+# UPDATE SERVICE
+# =========================================================
+
+
 @app.put("/services/{service_id}")
 def update_service(
     user: user_dependency,
@@ -422,7 +484,9 @@ def update_service(
     if service is None:
         raise HTTPException(status_code=404, detail="Service request not found")
 
-    if service.user_id != user.get("id") and user.get("role") != "admin":
+    role = str(user.get("role", "")).strip().lower()
+
+    if service.user_id != user.get("id") and role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     service.title = title
@@ -431,39 +495,14 @@ def update_service(
     service.location = location
 
     db.commit()
+    db.refresh(service)
 
     return {"message": "Service request updated successfully"}
 
 
-@app.put("/admin/service/status/{service_id}")
-def update_service_status(
-    user: user_dependency,
-    db: db_dependency,
-    service_id: int,
-    status: str,
-):
-
-    if user is None or user.get("role") != "admin":
-        raise HTTPException(status_code=401, detail="Failed Authentication")
-
-    service = db.query(ServiceRequests).filter(ServiceRequests.id == service_id).first()
-
-    if service is None:
-        raise HTTPException(status_code=404, detail="Service request not found")
-
-    if status not in [
-        "pending",
-        "in_progress",
-        "resolved",
-        "rejected",
-    ]:
-        raise HTTPException(status_code=400, detail="Invalid status")
-
-    service.status = status
-
-    db.commit()
-
-    return {"message": "Service request status updated successfully"}
+# =========================================================
+# DELETE SERVICE
+# =========================================================
 
 
 @app.delete("/services/{service_id}")
@@ -477,7 +516,9 @@ def delete_service(user: user_dependency, db: db_dependency, service_id: int):
     if service is None:
         raise HTTPException(status_code=404, detail="Service request not found")
 
-    if service.user_id != user.get("id") and user.get("role") != "admin":
+    role = str(user.get("role", "")).strip().lower()
+
+    if service.user_id != user.get("id") and role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     db.delete(service)
@@ -499,8 +540,13 @@ def send_admin_message(
     message: str,
 ):
 
-    if user is None or user.get("role") != "admin":
-        raise HTTPException(status_code=401, detail="Admin access required")
+    if user is None:
+        raise HTTPException(status_code=401, detail="Failed Authentication")
+
+    role = str(user.get("role", "")).strip().lower()
+
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
 
     if not title.strip() or not message.strip():
         raise HTTPException(status_code=400, detail="Title and message are required")
@@ -514,11 +560,21 @@ def send_admin_message(
     return {"message": "Message sent successfully", "data": new_message}
 
 
+# =========================================================
+# GET ADMIN MESSAGES
+# =========================================================
+
+
 @app.get("/admin/messages")
 def get_admin_messages(user: user_dependency, db: db_dependency):
 
-    if user is None or user.get("role") != "admin":
-        raise HTTPException(status_code=401, detail="Admin access required")
+    if user is None:
+        raise HTTPException(status_code=401, detail="Failed Authentication")
+
+    role = str(user.get("role", "")).strip().lower()
+
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
 
     messages = (
         db.query(AdminMessages)
@@ -528,6 +584,11 @@ def get_admin_messages(user: user_dependency, db: db_dependency):
     )
 
     return messages
+
+
+# =========================================================
+# GET USER MESSAGES
+# =========================================================
 
 
 @app.get("/messages")
@@ -541,11 +602,21 @@ def get_user_messages(user: user_dependency, db: db_dependency):
     return messages
 
 
+# =========================================================
+# DELETE ADMIN MESSAGE
+# =========================================================
+
+
 @app.delete("/admin/messages/{message_id}")
 def delete_admin_message(message_id: int, user: user_dependency, db: db_dependency):
 
-    if user is None or user.get("role") != "admin":
-        raise HTTPException(status_code=401, detail="Admin access required")
+    if user is None:
+        raise HTTPException(status_code=401, detail="Failed Authentication")
+
+    role = str(user.get("role", "")).strip().lower()
+
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
 
     message = (
         db.query(AdminMessages)
